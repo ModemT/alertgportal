@@ -1,9 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: true },
+
   modules: [
     '@nuxtjs/tailwindcss'
   ],
+
   app: {
     head: {
       title: 'AlertG Payment Portal',
@@ -15,5 +17,7 @@ export default defineNuxtConfig({
       ]
     }
   },
-  css: ['~/assets/css/main.css']
+
+  css: ['~/assets/css/main.css'],
+  compatibilityDate: '2025-03-12'
 })
