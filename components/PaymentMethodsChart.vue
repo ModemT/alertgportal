@@ -1,17 +1,25 @@
 <template>
-  <div>
+  <div class="chart-container">
     <canvas ref="chartRef"></canvas>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import Chart from 'chart.js/auto';
 
 const chartRef = ref(null);
 let chart = null;
 
-onMounted(() => {
+// Function to determine if we're on mobile
+const isMobile = () => window.innerWidth < 768;
+
+// Create or update chart
+const createChart = () => {
+  if (chart) {
+    chart.destroy();
+  }
+  
   const ctx = chartRef.value.getContext('2d');
   
   // Sample data
@@ -40,6 +48,8 @@ onMounted(() => {
     ]
   };
   
+  const mobile = isMobile();
+  
   // Chart configuration
   chart = new Chart(ctx, {
     type: 'doughnut',
@@ -49,7 +59,14 @@ onMounted(() => {
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          position: 'right',
+          position: mobile ? 'bottom' : 'right',
+          labels: {
+            boxWidth: mobile ? 12 : 40,
+            font: {
+              size: mobile ? 10 : 12
+            },
+            padding: mobile ? 10 : 20
+          }
         },
         tooltip: {
           callbacks: {
@@ -61,8 +78,33 @@ onMounted(() => {
           }
         }
       },
-      cutout: '65%'
+      cutout: mobile ? '60%' : '65%'
     }
   });
+};
+
+// Handle window resize
+const handleResize = () => {
+  createChart();
+};
+
+onMounted(() => {
+  createChart();
+  window.addEventListener('resize', handleResize);
 });
-</script> 
+
+onUnmounted(() => {
+  if (chart) {
+    chart.destroy();
+  }
+  window.removeEventListener('resize', handleResize);
+});
+</script>
+
+<style scoped>
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+</style> 

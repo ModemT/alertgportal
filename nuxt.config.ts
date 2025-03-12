@@ -10,7 +10,8 @@ export default defineNuxtConfig({
     head: {
       title: 'AlertG Payment Portal',
       meta: [
-        { name: 'description', content: 'A modern payment portal dashboard' }
+        { name: 'description', content: 'A modern payment portal dashboard' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no' }
       ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
