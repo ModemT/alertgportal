@@ -9,6 +9,9 @@ A modern payment portal dashboard built with Nuxt 3 and Tailwind CSS. This proje
 - **Customers**: Manage customer information and track spending
 - **Invoices**: Create and track invoices
 - **Settings**: Configure account, payment methods, and notification preferences
+- **Thai Language Support**: Full Thai language interface
+- **PromptPay Integration**: Support for various PromptPay payment methods
+- **Thai Baht Currency**: All monetary values displayed in Thai Baht (฿)
 
 ## Tech Stack
 
@@ -50,10 +53,16 @@ yarn dev
 ## Build for Production
 
 ```bash
+# Build for Node.js server
 npm run build
-# or
-yarn build
+
+# Generate static site
+npm run generate
 ```
+
+## Deployment
+
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## License
 
