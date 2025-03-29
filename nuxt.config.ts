@@ -20,5 +20,12 @@ export default defineNuxtConfig({
   },
 
   css: ['~/assets/css/main.css'],
-  compatibilityDate: '2025-03-12'
+  compatibilityDate: '2025-03-12',
+
+  // Add runtime config
+  runtimeConfig: {
+    public: {
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '', // Use environment variable with fallback
+    }
+  }
 })

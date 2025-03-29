@@ -3,5 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".output",
   "devCommand": "npm run dev",
-  "ignoreCommand": "npx turbo-ignore"
+  "ignoreCommand": "npx turbo-ignore",
+  "env": {
+    "NUXT_PUBLIC_API_BASE_URL": "https://aspera-production.up.railway.app"
+  }
 } 

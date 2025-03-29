@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="isAuthenticated">
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
       <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 border-l-4 border-primary-500">
@@ -136,6 +136,18 @@
 </template>
 
 <script setup>
+import { ref, onBeforeMount } from 'vue'
+import { useAuth } from '~/composables/useAuth'
+
+const { isAuthenticated, checkAuth } = useAuth()
+
+onBeforeMount(async () => {
+  const authenticated = await checkAuth()
+  if (!authenticated) {
+    navigateTo('/login')
+  }
+})
+
 const recentTransactions = [
   {
     customer: {
