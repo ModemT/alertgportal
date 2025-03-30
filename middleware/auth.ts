@@ -23,7 +23,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     const errorObj = {
       statusCode: 401,
       message: 'Authentication failed. Please log in again.',
-      error: error
+      statusText: error instanceof Error ? error.message : 'Unknown error'
     }
     return createError(errorObj)
   }
