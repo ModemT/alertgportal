@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { useRuntimeConfig } from '#app'
 
 interface User {
   id: string
@@ -30,45 +31,65 @@ export const useAuth = () => {
 
   const login = async (username: string, password: string) => {
     const config = useRuntimeConfig()
-    const response = await fetch(`${config.public.apiBaseUrl}/users/auth`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    })
+    try {
+      const response = await fetch(`${config.public.apiBase}/users/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      })
 
-    if (!response.ok) {
       const data = await response.json()
-      throw new Error(data.detail || 'Invalid credentials')
-    }
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Invalid credentials')
+      }
 
-    const data = await response.json()
-    localStorage.setItem('token', data.access_token)
-    setUser(data)
-    return data
+      if (!data.access_token) {
+        throw new Error('No access token received')
+      }
+
+      localStorage.setItem('token', data.access_token)
+      setUser(data)
+      return data
+    } catch (err) {
+      clearUser()
+      localStorage.removeItem('token')
+      throw err
+    }
   }
 
   const register = async (username: string, email: string, password: string, partner_id: string) => {
     const config = useRuntimeConfig()
-    const response = await fetch(`${config.public.apiBaseUrl}/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-partner-id': partner_id,
-      },
-      body: JSON.stringify({ username, email, password}),
-    })
+    try {
+      const response = await fetch(`${config.public.apiBase}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-partner-id': partner_id,
+        },
+        body: JSON.stringify({ username, email, password }),
+      })
 
-    if (!response.ok) {
       const data = await response.json()
-      throw new Error(data.detail || 'Registration failed')
-    }
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Registration failed')
+      }
 
-    const data = await response.json()
-    localStorage.setItem('token', data.access_token)
-    setUser(data)
-    return data
+      if (!data.access_token) {
+        throw new Error('No access token received')
+      }
+
+      localStorage.setItem('token', data.access_token)
+      setUser(data)
+      return data
+    } catch (err) {
+      clearUser()
+      localStorage.removeItem('token')
+      throw err
+    }
   }
 
   const logout = () => {
@@ -85,9 +106,9 @@ export const useAuth = () => {
 
     try {
       const config = useRuntimeConfig()
-      const response = await fetch(`${config.public.apiBaseUrl}/users/me`, {
+      const response = await fetch(`${config.public.apiBase}/users/me`, {
         headers: {
-          'access-token': `${token}`,
+          'access-token': token
         },
       })
 
@@ -100,6 +121,7 @@ export const useAuth = () => {
       return true
     } catch (error) {
       clearUser()
+      localStorage.removeItem('token')
       return false
     }
   }
@@ -113,7 +135,7 @@ export const useAuth = () => {
 
     try {
       const config = useRuntimeConfig()
-      const response = await fetch(`${config.public.apiBaseUrl}/users/me`, {
+      const response = await fetch(`${config.public.apiBase}/users/me`, {
         headers: {
           'access-token': `${token}`,
         },

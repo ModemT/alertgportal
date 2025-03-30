@@ -186,7 +186,7 @@ const isLoading = ref(true);
 const initializeAuthStatus = async () => {
   try {
     const success = await initializeAuth();
-    if (!success) {
+    if (!success && route.path !== '/login' && route.path !== '/register') {
       navigateTo('/login');
       return;
     }
@@ -194,7 +194,9 @@ const initializeAuthStatus = async () => {
   } catch (error) {
     console.error('Auth initialization error:', error);
     isLoading.value = false;
-    navigateTo('/login');
+    if (route.path !== '/login' && route.path !== '/register') {
+      navigateTo('/login');
+    }
   }
 };
 

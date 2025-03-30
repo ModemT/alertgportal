@@ -33,14 +33,25 @@
       </div>
     </div>
     
+    <!-- Loading and Error States -->
+    <div v-if="loading" class="text-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+    </div>
+    
+    <div v-else-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+      <strong class="font-bold">Error!</strong>
+      <span class="block sm:inline"> {{ error }}</span>
+    </div>
+    
     <!-- Customers Table -->
-    <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6">
+    <div v-else class="card bg-white rounded-lg shadow-md p-4 sm:p-6">
       <div class="overflow-x-auto responsive-table">
         <table class="min-w-full divide-y divide-gray-200">
           <thead>
             <tr>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อีเมล</th>
+              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เบอร์โทร</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เข้าร่วม</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การชำระเงินทั้งหมด</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">มูลค่ารวม</th>
@@ -49,21 +60,23 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="customer in customers" :key="customer.id">
+            <tr v-for="customer in shoppers" :key="customer.id">
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center">
                   <div class="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
-                    {{ customer.initials }}
+                    {{ getInitials(customer.name) }}
                   </div>
                   <div class="ml-3 sm:ml-4">
                     <div class="text-sm font-medium text-gray-900">{{ customer.name }}</div>
+                    <div class="text-sm text-gray-500">{{ customer.account }}</div>
                   </div>
                 </div>
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.email }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.joinDate }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.totalPayments }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">฿{{ customer.totalValue }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.phone }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(customer.created_at) }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.total_completed_charges?.THB || '0.00' }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">฿{{ formatCurrency(customer.total_completed_charges?.THB || '0.00') }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <span :class="getStatusClass(customer.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
                   {{ customer.status }}
@@ -81,22 +94,35 @@
       <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
         <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง 1 ถึง 10 จาก 50 รายการ
+          แสดง {{ ((currentPage - 1) * itemsPerPage) + 1 }} ถึง {{ Math.min(currentPage * itemsPerPage, totalItems) }} จาก {{ totalItems }} รายการ
         </div>
         <div class="flex items-center">
-          <button class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2">
+          <button 
+            @click="prevPage"
+            :disabled="currentPage === 1"
+            :class="{'opacity-50 cursor-not-allowed': currentPage === 1}"
+            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2"
+          >
             ก่อนหน้า
           </button>
-          <button class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 mr-2">
-            1
+          <button 
+            v-for="page in Math.ceil(totalItems / itemsPerPage)" 
+            :key="page"
+            @click="goToPage(page)"
+            :class="{
+              'bg-primary-500 text-white hover:bg-primary-600': currentPage === page,
+              'text-gray-700 bg-white hover:bg-gray-50': currentPage !== page
+            }"
+            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium mr-2"
+          >
+            {{ page }}
           </button>
-          <button class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2">
-            2
-          </button>
-          <button class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2">
-            3
-          </button>
-          <button class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+          <button 
+            @click="nextPage"
+            :disabled="currentPage >= Math.ceil(totalItems / itemsPerPage)"
+            :class="{'opacity-50 cursor-not-allowed': currentPage >= Math.ceil(totalItems / itemsPerPage)}"
+            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
             ถัดไป
           </button>
         </div>
@@ -106,67 +132,77 @@
 </template>
 
 <script setup>
-const customers = [
-  {
-    id: 1,
-    name: 'สมชาย ใจดี',
-    email: 'somchai@example.com',
-    initials: 'สช',
-    joinDate: '15 มี.ค. 2566',
-    totalPayments: 12,
-    totalValue: '28,450.00',
-    status: 'ใช้งาน'
-  },
-  {
-    id: 2,
-    name: 'วิภา รักเรียน',
-    email: 'wipa@example.com',
-    initials: 'วภ',
-    joinDate: '3 ก.พ. 2566',
-    totalPayments: 8,
-    totalValue: '15,200.00',
-    status: 'ใช้งาน'
-  },
-  {
-    id: 3,
-    name: 'ประเสริฐ มั่งมี',
-    email: 'prasert@example.com',
-    initials: 'ปส',
-    joinDate: '22 ก.ค. 2566',
-    totalPayments: 5,
-    totalValue: '9,750.00',
-    status: 'ใช้งาน'
-  },
-  {
-    id: 4,
-    name: 'กมลา สวัสดี',
-    email: 'kamala@example.com',
-    initials: 'กม',
-    joinDate: '10 มิ.ย. 2566',
-    totalPayments: 3,
-    totalValue: '6,500.00',
-    status: 'ไม่ใช้งาน'
-  },
-  {
-    id: 5,
-    name: 'สมศรี มีทรัพย์',
-    email: 'somsri@example.com',
-    initials: 'สศ',
-    joinDate: '5 เม.ย. 2566',
-    totalPayments: 7,
-    totalValue: '12,800.00',
-    status: 'ใช้งาน'
+import { ref, onMounted } from 'vue'
+import { useShoppers } from '~/composables/useShoppers'
+
+const { shoppers, loading, error, fetchShoppers } = useShoppers()
+
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+const totalItems = ref(0)
+
+const fetchPage = async () => {
+  const skip = (currentPage.value - 1) * itemsPerPage.value
+  await fetchShoppers(skip, itemsPerPage.value)
+}
+
+const nextPage = () => {
+  if ((currentPage.value * itemsPerPage.value) < totalItems.value) {
+    currentPage.value++
+    fetchPage()
   }
-];
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    fetchPage()
+  }
+}
+
+const goToPage = (page) => {
+  currentPage.value = page
+  fetchPage()
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return new Intl.DateTimeFormat('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  }).format(date)
+}
+
+const getInitials = (name) => {
+  if (!name) return ''
+  return name.split(' ')
+    .map(word => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
 
 const getStatusClass = (status) => {
   switch (status) {
-    case 'ใช้งาน':
-      return 'bg-green-100 text-green-800';
-    case 'ไม่ใช้งาน':
-      return 'bg-red-100 text-red-800';
+    case 'active':
+      return 'bg-green-100 text-green-800'
+    case 'inactive':
+      return 'bg-red-100 text-red-800'
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-800'
   }
-};
+}
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(parseFloat(value))
+}
+
+onMounted(() => {
+  fetchPage()
+})
 </script> 

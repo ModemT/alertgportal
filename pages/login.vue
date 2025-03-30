@@ -16,6 +16,7 @@
               name="username"
               type="text"
               required
+              :disabled="loading"
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               placeholder="Username"
             />
@@ -28,6 +29,7 @@
               name="password"
               type="password"
               required
+              :disabled="loading"
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               placeholder="Password"
             />
@@ -37,8 +39,8 @@
         <div>
           <button
             type="submit"
-            :disabled="loading"
-            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            :disabled="loading || !username || !password"
+            class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span class="absolute left-0 inset-y-0 flex items-center pl-3">
               <svg
@@ -55,14 +57,44 @@
                   clip-rule="evenodd"
                 />
               </svg>
+              <svg 
+                v-else
+                class="animate-spin h-5 w-5 text-white" 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="none" 
+                viewBox="0 0 24 24"
+              >
+                <circle 
+                  class="opacity-25" 
+                  cx="12" 
+                  cy="12" 
+                  r="10" 
+                  stroke="currentColor" 
+                  stroke-width="4"
+                />
+                <path 
+                  class="opacity-75" 
+                  fill="currentColor" 
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
             </span>
             {{ loading ? 'Signing in...' : 'Sign in' }}
           </button>
         </div>
       </form>
 
-      <div v-if="error" class="text-red-500 text-sm text-center">
-        {{ error }}
+      <div v-if="error" class="mt-2 rounded-md bg-red-50 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-700">{{ error }}</p>
+          </div>
+        </div>
       </div>
 
       <div class="text-sm text-center">
@@ -75,25 +107,30 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
 const { login } = useAuth()
 const route = useRoute()
+const router = useRouter()
 
 const handleLogin = async () => {
+  if (loading.value || !username.value || !password.value) return
+  
   loading.value = true
   error.value = ''
   
   try {
     await login(username.value, password.value)
     // Redirect to the original path or dashboard
-    const redirectPath = route.query.redirect || '/'
-    navigateTo(redirectPath)
+    const redirectPath = route.query.redirect?.toString() || '/'
+    await router.push(redirectPath)
   } catch (err) {
-    error.value = err.message || 'An error occurred during login'
-  } finally {
+    error.value = err instanceof Error ? err.message : 'An error occurred during login'
     loading.value = false
   }
 }

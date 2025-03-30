@@ -25,7 +25,7 @@ export default defineNuxtConfig({
   // Add runtime config
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '', // Use environment variable with fallback
+      apiBase: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://0.0.0.0:8000'
     }
   }
 })
