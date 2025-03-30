@@ -6,9 +6,9 @@
         <div class="flex items-center">
           <div class="flex-1">
             <h3 class="text-gray-500 text-sm font-medium">รายได้ทั้งหมด</h3>
-            <p class="text-xl sm:text-2xl font-bold text-gray-800">฿24,780.00</p>
+            <p class="text-xl sm:text-2xl font-bold text-gray-800">฿{{ Number(totalRevenue).toFixed(2) }}</p>
             <p class="text-sm text-green-500 mt-1">
-              <span class="font-medium">+2.5%</span> จากเดือนที่แล้ว
+              <span class="font-medium">+{{ revenueChange }}%</span> จากเดือนที่แล้ว
             </p>
           </div>
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary-100 flex items-center justify-center">
@@ -23,9 +23,9 @@
         <div class="flex items-center">
           <div class="flex-1">
             <h3 class="text-gray-500 text-sm font-medium">ลูกค้า</h3>
-            <p class="text-xl sm:text-2xl font-bold text-gray-800">1,482</p>
+            <p class="text-xl sm:text-2xl font-bold text-gray-800">{{ totalCustomers }}</p>
             <p class="text-sm text-green-500 mt-1">
-              <span class="font-medium">+12.3%</span> จากเดือนที่แล้ว
+              <span class="font-medium">+{{ customerChange }}%</span> จากเดือนที่แล้ว
             </p>
           </div>
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-secondary-100 flex items-center justify-center">
@@ -40,9 +40,9 @@
         <div class="flex items-center">
           <div class="flex-1">
             <h3 class="text-gray-500 text-sm font-medium">ใบแจ้งหนี้</h3>
-            <p class="text-xl sm:text-2xl font-bold text-gray-800">642</p>
+            <p class="text-xl sm:text-2xl font-bold text-gray-800">{{ totalInvoices }}</p>
             <p class="text-sm text-green-500 mt-1">
-              <span class="font-medium">+8.1%</span> จากเดือนที่แล้ว
+              <span class="font-medium">+{{ invoiceChange }}%</span> จากเดือนที่แล้ว
             </p>
           </div>
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-100 flex items-center justify-center">
@@ -57,9 +57,9 @@
         <div class="flex items-center">
           <div class="flex-1">
             <h3 class="text-gray-500 text-sm font-medium">รอดำเนินการ</h3>
-            <p class="text-xl sm:text-2xl font-bold text-gray-800">฿4,125.00</p>
+            <p class="text-xl sm:text-2xl font-bold text-gray-800">฿{{ Number(pendingAmount).toFixed(2) }}</p>
             <p class="text-sm text-red-500 mt-1">
-              <span class="font-medium">+2.1%</span> จากเดือนที่แล้ว
+              <span class="font-medium">+{{ pendingChange }}%</span> จากเดือนที่แล้ว
             </p>
           </div>
           <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-yellow-100 flex items-center justify-center">
@@ -120,10 +120,12 @@
                 </div>
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ transaction.date }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">฿{{ transaction.amount }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+                {{ transaction.currency === 'THB' ? '฿' : '$' }}{{ transaction.amount }}
+              </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <span :class="getStatusClass(transaction.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                  {{ transaction.status }}
+                  {{ getStatusLabel(transaction.status) }}
                 </span>
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ transaction.method }}</td>
@@ -136,86 +138,274 @@
 </template>
 
 <script setup>
-import { ref, onBeforeMount } from 'vue'
+import { ref, onBeforeMount, computed } from 'vue'
 import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
+import RevenueChart from '~/components/RevenueChart.vue'
+import PaymentMethodsChart from '~/components/PaymentMethodsChart.vue'
 
 const { isAuthenticated, checkAuth } = useAuth()
+const api = useApi()
 
-onBeforeMount(async () => {
-  const authenticated = await checkAuth()
-  if (!authenticated) {
-    navigateTo('/login')
-  }
-})
+// Dashboard stats
+const totalRevenue = ref(0)
+const totalCustomers = ref(0)
+const totalInvoices = ref(0)
+const pendingAmount = ref(0)
+const revenueChange = ref(0)
+const customerChange = ref(0)
+const invoiceChange = ref(0)
+const pendingChange = ref(0)
 
-const recentTransactions = [
-  {
-    customer: {
-      name: 'สมชาย ใจดี',
-      email: 'somchai@example.com',
-      initials: 'สช'
-    },
-    date: '4 พ.ค. 2566',
-    amount: '2,400.00',
-    status: 'สำเร็จ',
-    method: 'พร้อมเพย์'
-  },
-  {
-    customer: {
-      name: 'วิภา รักเรียน',
-      email: 'wipa@example.com',
-      initials: 'วภ'
-    },
-    date: '3 พ.ค. 2566',
-    amount: '1,250.00',
-    status: 'กำลังดำเนินการ',
-    method: 'พร้อมเพย์'
-  },
-  {
-    customer: {
-      name: 'ประเสริฐ มั่งมี',
-      email: 'prasert@example.com',
-      initials: 'ปส'
-    },
-    date: '2 พ.ค. 2566',
-    amount: '750.00',
-    status: 'สำเร็จ',
-    method: 'พร้อมเพย์'
-  },
-  {
-    customer: {
-      name: 'กมลา สวัสดี',
-      email: 'kamala@example.com',
-      initials: 'กม'
-    },
-    date: '1 พ.ค. 2566',
-    amount: '3,200.00',
-    status: 'ล้มเหลว',
-    method: 'พร้อมเพย์'
-  },
-  {
-    customer: {
-      name: 'สมศรี มีทรัพย์',
-      email: 'somsri@example.com',
-      initials: 'สศ'
-    },
-    date: '30 เม.ย. 2566',
-    amount: '1,800.00',
-    status: 'สำเร็จ',
-    method: 'พร้อมเพย์'
+// Recent transactions
+const recentTransactions = ref([])
+const loading = ref(false)
+const error = ref(null)
+
+// Function to fetch all charges with pagination
+const fetchAllCharges = async () => {
+  const allCharges = [];
+  let skip = 0;
+  const limit = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    try {
+      const charges = await api.get(`/charges?skip=${skip}&limit=${limit}`);
+      if (!charges || charges.length === 0) {
+        hasMore = false;
+        break;
+      }
+      allCharges.push(...charges);
+      if (charges.length < limit) {
+        hasMore = false;
+      } else {
+        skip += limit;
+      }
+    } catch (error) {
+      console.error('Error fetching charges:', error);
+      hasMore = false;
+    }
   }
-];
+
+  return allCharges;
+};
+
+// Function to fetch all shoppers with pagination
+const fetchAllShoppers = async () => {
+  const allShoppers = [];
+  let skip = 0;
+  const limit = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    try {
+      const shoppers = await api.get(`/shoppers?skip=${skip}&limit=${limit}`);
+      if (!shoppers || shoppers.length === 0) {
+        hasMore = false;
+        break;
+      }
+      allShoppers.push(...shoppers);
+      if (shoppers.length < limit) {
+        hasMore = false;
+      } else {
+        skip += limit;
+      }
+    } catch (error) {
+      console.error('Error fetching shoppers:', error);
+      hasMore = false;
+    }
+  }
+
+  return allShoppers;
+};
+
+// Fetch dashboard data
+const fetchDashboardData = async () => {
+  try {
+    loading.value = true
+    error.value = null
+
+    // Fetch all charges and shoppers with pagination
+    const [charges, shoppers] = await Promise.all([
+      fetchAllCharges(),
+      fetchAllShoppers()
+    ]);
+    
+    // Calculate total revenue from shopper's total_completed_charges
+    totalRevenue.value = shoppers.reduce((sum, shopper) => {
+      return sum + Number(shopper.total_completed_charges?.THB || 0);
+    }, 0);
+    
+    // Calculate pending amount from charges
+    pendingAmount.value = charges.reduce((sum, charge) => {
+      if (charge.status === 'pending') {
+        const totalPaymentValue = Number(charge.amount) + 
+          (Number(charge.charge_metadata?.fee || 0)) + 
+          (Number(charge.charge_metadata?.tax || 0));
+        return sum + totalPaymentValue;
+      }
+      return sum;
+    }, 0);
+
+    // Set total customers
+    totalCustomers.value = shoppers.length;
+
+    // Calculate invoice count
+    totalInvoices.value = charges.length;
+
+    // Calculate changes by comparing with previous month
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const currentMonthShoppers = shoppers.filter(shopper => {
+      const shopperDate = new Date(shopper.created_at);
+      return shopperDate >= currentMonth;
+    });
+
+    const previousMonthShoppers = shoppers.filter(shopper => {
+      const shopperDate = new Date(shopper.created_at);
+      return shopperDate >= previousMonth && shopperDate < currentMonth;
+    });
+
+    // Calculate current month revenue from current month shoppers
+    const currentMonthRevenue = currentMonthShoppers.reduce((sum, shopper) => {
+      return sum + Number(shopper.total_completed_charges?.THB || 0);
+    }, 0);
+
+    // Calculate previous month revenue from previous month shoppers
+    const previousMonthRevenue = previousMonthShoppers.reduce((sum, shopper) => {
+      return sum + Number(shopper.total_completed_charges?.THB || 0);
+    }, 0);
+
+    revenueChange.value = previousMonthRevenue > 0 
+      ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
+      : 0;
+
+    // Calculate customer growth
+    customerChange.value = previousMonthShoppers.length > 0
+      ? ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
+      : 0;
+
+    // Calculate invoice growth
+    const currentMonthCharges = charges.filter(charge => {
+      const chargeDate = new Date(charge.created_at);
+      return chargeDate >= currentMonth;
+    });
+
+    const previousMonthCharges = charges.filter(charge => {
+      const chargeDate = new Date(charge.created_at);
+      return chargeDate >= previousMonth && chargeDate < currentMonth;
+    });
+
+    const currentMonthInvoices = currentMonthCharges.length;
+    const previousMonthInvoices = previousMonthCharges.length;
+
+    invoiceChange.value = previousMonthInvoices > 0
+      ? ((currentMonthInvoices - previousMonthInvoices) / previousMonthInvoices) * 100
+      : 0;
+
+    // Calculate pending amount change
+    const currentMonthPending = currentMonthCharges.reduce((sum, charge) => {
+      if (charge.status === 'pending') {
+        const totalPaymentValue = Number(charge.amount) + 
+          (Number(charge.charge_metadata?.fee || 0)) + 
+          (Number(charge.charge_metadata?.tax || 0));
+        return sum + totalPaymentValue;
+      }
+      return sum;
+    }, 0);
+
+    const previousMonthPending = previousMonthCharges.reduce((sum, charge) => {
+      if (charge.status === 'pending') {
+        const totalPaymentValue = Number(charge.amount) + 
+          (Number(charge.charge_metadata?.fee || 0)) + 
+          (Number(charge.charge_metadata?.tax || 0));
+        return sum + totalPaymentValue;
+      }
+      return sum;
+    }, 0);
+
+    pendingChange.value = previousMonthPending > 0
+      ? ((currentMonthPending - previousMonthPending) / previousMonthPending) * 100
+      : 0;
+
+    // Get recent transactions with shopper details
+    const recentCharges = charges
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 5);
+
+    // Create a map of shopper IDs to shopper details for faster lookup
+    const shopperMap = new Map(shoppers.map(shopper => [shopper.id, shopper]));
+
+    // Map recent transactions with shopper details
+    recentTransactions.value = recentCharges.map(charge => {
+      const shopper = shopperMap.get(charge.shopper_id);
+      return {
+        customer: {
+          name: shopper?.name || charge.shopper_id,
+          email: shopper?.email || '',
+          initials: shopper?.name 
+            ? shopper.name.split(' ').map(n => n[0]).join('').toUpperCase()
+            : charge.shopper_id.slice(0, 2).toUpperCase()
+        },
+        date: new Date(charge.created_at).toLocaleDateString('th-TH'),
+        amount: Number(charge.amount).toFixed(2),
+        currency: charge.currency,
+        status: charge.status,
+        method: charge.charge_metadata?.payment_method || 'พร้อมเพย์'
+      };
+    });
+
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
+    console.error('Error fetching dashboard data:', err);
+  } finally {
+    loading.value = false;
+  }
+};
 
 const getStatusClass = (status) => {
   switch (status) {
-    case 'สำเร็จ':
+    case 'completed':
       return 'bg-green-100 text-green-800';
-    case 'กำลังดำเนินการ':
+    case 'pending':
       return 'bg-yellow-100 text-yellow-800';
-    case 'ล้มเหลว':
+    case 'failed':
       return 'bg-red-100 text-red-800';
+    case 'cancelled':
+      return 'bg-gray-100 text-gray-800';
+    case 'refunded':
+      return 'bg-blue-100 text-blue-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
 };
+
+const getStatusLabel = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'สำเร็จ';
+    case 'pending':
+      return 'รอดำเนินการ';
+    case 'failed':
+      return 'ล้มเหลว';
+    case 'cancelled':
+      return 'ยกเลิก';
+    case 'refunded':
+      return 'คืนเงิน';
+    default:
+      return status;
+  }
+};
+
+onBeforeMount(async () => {
+  const authenticated = await checkAuth();
+  if (!authenticated) {
+    navigateTo('/login');
+  } else {
+    await fetchDashboardData();
+  }
+});
 </script> 

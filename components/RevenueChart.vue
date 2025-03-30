@@ -7,114 +7,212 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import Chart from 'chart.js/auto';
+import { useApi } from '~/composables/useApi';
 
 const chartRef = ref(null);
 let chart = null;
+const api = useApi();
 
 // Function to determine if we're on mobile
 const isMobile = () => window.innerWidth < 768;
 
+// Function to get month name in Thai
+const getThaiMonth = (date) => {
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  return months[date.getMonth()];
+};
+
+// Function to fetch all charges with pagination
+const fetchAllCharges = async () => {
+  const allCharges = [];
+  let skip = 0;
+  const limit = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    try {
+      const charges = await api.get(`/charges?skip=${skip}&limit=${limit}`);
+      if (!charges || charges.length === 0) {
+        hasMore = false;
+        break;
+      }
+      allCharges.push(...charges);
+      if (charges.length < limit) {
+        hasMore = false;
+      } else {
+        skip += limit;
+      }
+    } catch (error) {
+      console.error('Error fetching charges:', error);
+      hasMore = false;
+    }
+  }
+
+  return allCharges;
+};
+
 // Create or update chart
-const createChart = () => {
+const createChart = async () => {
   if (chart) {
     chart.destroy();
   }
   
   const ctx = chartRef.value.getContext('2d');
   
-  // Sample data
-  const labels = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  const data = {
-    labels: labels,
-    datasets: [
-      {
-        label: 'รายได้',
-        data: [18500, 21200, 19800, 22400, 24200, 23100, 25800, 27500, 26200, 28900, 29800, 32100],
-        backgroundColor: 'rgba(9, 103, 210, 0.2)',
-        borderColor: 'rgba(9, 103, 210, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-      },
-      {
-        label: 'รายจ่าย',
-        data: [12300, 13100, 12800, 14200, 15100, 14800, 16200, 17100, 16800, 18200, 19100, 20300],
-        backgroundColor: 'rgba(63, 145, 66, 0.2)',
-        borderColor: 'rgba(63, 145, 66, 1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
-      }
-    ]
-  };
-  
-  const mobile = isMobile();
-  
-  // Chart configuration
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: data,
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: mobile ? 'bottom' : 'top',
-          labels: {
-            boxWidth: mobile ? 12 : 40,
-            font: {
-              size: mobile ? 10 : 12
-            }
+  try {
+    // Fetch all charges with pagination
+    const charges = await fetchAllCharges();
+    
+    // Process data for the last 12 months
+    const now = new Date();
+    const monthlyData = Array(12).fill(0).map((_, index) => {
+      const month = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() - index + 1, 1);
+      
+      const monthCharges = charges.filter(charge => {
+        try {
+          const chargeDate = new Date(charge.created_at);
+          if (isNaN(chargeDate.getTime())) {
+            console.error('Invalid date for charge:', charge);
+            return false;
           }
-        },
-        tooltip: {
-          mode: 'index',
-          intersect: false,
-          callbacks: {
-            label: function(context) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
-              }
-              if (context.parsed.y !== null) {
-                label += new Intl.NumberFormat('th-TH', {
-                  style: 'currency',
-                  currency: 'THB'
-                }).format(context.parsed.y);
-              }
-              return label;
-            }
-          }
+          return chargeDate >= month && chargeDate < nextMonth;
+        } catch (error) {
+          console.error('Error processing charge date:', error, charge);
+          return false;
         }
-      },
-      scales: {
-        x: {
-          grid: {
-            display: false
+      });
+
+      // Log monthly data for debugging
+      if (index === 0) { // Only log current month
+        console.log('Current month charges:', {
+          month: getThaiMonth(month),
+          totalCharges: monthCharges.length,
+          charges: monthCharges
+        });
+      }
+      
+      const revenue = monthCharges.reduce((sum, charge) => {
+        try {
+          // Only count completed charges as revenue
+          if (charge.status === 'completed') {
+            const amount = Number(charge.amount);
+            if (isNaN(amount)) {
+              console.error('Invalid amount for charge:', charge);
+              return sum;
+            }
+            return sum + amount;
+          }
+          return sum;
+        } catch (error) {
+          console.error('Error processing revenue:', error, charge);
+          return sum;
+        }
+      }, 0);
+      
+      const expenses = monthCharges.reduce((sum, charge) => {
+        try {
+          // Count both refunded and cancelled charges as expenses
+          if (charge.status === 'refunded' || charge.status === 'cancelled') {
+            const amount = Number(charge.amount);
+            if (isNaN(amount)) {
+              console.error('Invalid amount for charge:', charge);
+              return sum;
+            }
+            return sum + amount;
+          }
+          return sum;
+        } catch (error) {
+          console.error('Error processing expenses:', error, charge);
+          return sum;
+        }
+      }, 0);
+
+      // Log revenue/expense data for debugging
+      if (index === 0) { // Only log current month
+        console.log('Current month summary:', {
+          month: getThaiMonth(month),
+          revenue,
+          expenses
+        });
+      }
+      
+      return {
+        month: getThaiMonth(month),
+        revenue,
+        expenses
+      };
+    }).reverse();
+    
+    const data = {
+      labels: monthlyData.map(d => d.month),
+      datasets: [
+        {
+          label: 'รายได้',
+          data: monthlyData.map(d => d.revenue),
+          backgroundColor: 'rgba(9, 103, 210, 0.2)',
+          borderColor: 'rgba(9, 103, 210, 1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true
+        },
+        {
+          label: 'รายจ่าย',
+          data: monthlyData.map(d => d.expenses),
+          backgroundColor: 'rgba(63, 145, 66, 0.2)',
+          borderColor: 'rgba(63, 145, 66, 1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true
+        }
+      ]
+    };
+    
+    const mobile = isMobile();
+    
+    // Chart configuration
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: mobile ? 'bottom' : 'top',
+            labels: {
+              boxWidth: mobile ? 12 : 40,
+              font: {
+                size: mobile ? 10 : 12
+              },
+              padding: mobile ? 10 : 20
+            }
           },
-          ticks: {
-            font: {
-              size: mobile ? 8 : 12
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label || '';
+                const value = context.raw || 0;
+                return `${label}: ฿${value.toFixed(2)}`;
+              }
             }
           }
         },
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: function(value) {
-              if (mobile && value > 1000) {
-                return '฿' + (value / 1000) + 'K';
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '฿' + value.toLocaleString();
               }
-              return '฿' + value.toLocaleString('th-TH');
-            },
-            font: {
-              size: mobile ? 8 : 12
             }
           }
         }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error fetching revenue data:', error);
+  }
 };
 
 // Handle window resize

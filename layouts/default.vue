@@ -80,7 +80,9 @@
             <div class="p-4 border-t">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
-                  <img class="w-8 h-8 rounded-full" src="https://ui-avatars.com/api/?name=สมชาย+ใจดี&background=0D8ABC&color=fff" alt="User avatar">
+                  <NuxtLink to="/settings" class="flex-shrink-0">
+                    <img class="w-8 h-8 rounded-full" src="https://ui-avatars.com/api/?name=สมชาย+ใจดี&background=0D8ABC&color=fff" alt="User avatar">
+                  </NuxtLink>
                 </div>
                 <div class="ml-3">
                   <p class="text-sm font-medium text-gray-700">สมชาย ใจดี</p>
@@ -142,9 +144,9 @@
                     </svg>
                   </button>
                   <div class="relative">
-                    <button class="relative z-10 block h-8 w-8 rounded-full overflow-hidden focus:outline-none">
+                    <NuxtLink to="/settings" class="relative z-10 block h-8 w-8 rounded-full overflow-hidden focus:outline-none">
                       <img class="h-full w-full object-cover" src="https://ui-avatars.com/api/?name=สมชาย+ใจดี&background=0D8ABC&color=fff" alt="Your avatar">
-                    </button>
+                    </NuxtLink>
                   </div>
                 </div>
               </div>

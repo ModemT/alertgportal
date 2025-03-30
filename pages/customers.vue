@@ -2,7 +2,7 @@
   <div>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
       <h1 class="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-0">ลูกค้า</h1>
-      <button class="btn btn-primary text-sm">เพิ่มลูกค้าใหม่</button>
+      <button @click="openCreateModal" class="btn btn-primary text-sm">เพิ่มลูกค้าใหม่</button>
     </div>
     
     <!-- Filters -->
@@ -68,7 +68,8 @@
                   </div>
                   <div class="ml-3 sm:ml-4">
                     <div class="text-sm font-medium text-gray-900">{{ customer.name }}</div>
-                    <div class="text-sm text-gray-500">{{ customer.account }}</div>
+                    <div class="text-sm text-gray-500">เลขบัญชี: {{ customer.account }}</div>
+                    <div class="text-xs text-gray-400">รหัส: {{ customer.id }}</div>
                   </div>
                 </div>
               </td>
@@ -83,7 +84,7 @@
                 </span>
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                <button class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
+                <button @click="openShopperDetails(customer.id)" class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
                 <button class="text-primary-600 hover:text-primary-900">แก้ไข</button>
               </td>
             </tr>
@@ -128,18 +129,36 @@
         </div>
       </div>
     </div>
+
+    <!-- Shopper Details Modal -->
+    <ShopperDetailsModal
+      :is-open="isModalOpen"
+      :shopper-id="selectedShopperId"
+      @close="closeShopperDetails"
+    />
+
+    <!-- Create Customer Modal -->
+    <CreateCustomerModal
+      :is-open="isCreateModalOpen"
+      @close="closeCreateModal"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
+import ShopperDetailsModal from '~/components/ShopperDetailsModal.vue'
+import CreateCustomerModal from '~/components/CreateCustomerModal.vue'
 
 const { shoppers, loading, error, fetchShoppers } = useShoppers()
 
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 const totalItems = ref(0)
+const isModalOpen = ref(false)
+const selectedShopperId = ref('')
+const isCreateModalOpen = ref(false)
 
 const fetchPage = async () => {
   const skip = (currentPage.value - 1) * itemsPerPage.value
@@ -200,6 +219,25 @@ const formatCurrency = (value) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(parseFloat(value))
+}
+
+const openShopperDetails = (shopperId) => {
+  selectedShopperId.value = shopperId
+  isModalOpen.value = true
+}
+
+const closeShopperDetails = () => {
+  isModalOpen.value = false
+  selectedShopperId.value = ''
+}
+
+const openCreateModal = () => {
+  isCreateModalOpen.value = true
+}
+
+const closeCreateModal = () => {
+  isCreateModalOpen.value = false
+  fetchPage() // Refresh the list after creating a new customer
 }
 
 onMounted(() => {

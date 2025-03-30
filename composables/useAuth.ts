@@ -158,6 +158,36 @@ export const useAuth = () => {
     }
   }
 
+  const updateUser = async (userData: Partial<User>) => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('Not authenticated')
+    }
+
+    try {
+      const config = useRuntimeConfig()
+      const response = await fetch(`${config.public.apiBase}/users/me`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'access-token': token
+        },
+        body: JSON.stringify(userData)
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.detail || 'Failed to update user')
+      }
+
+      const data = await response.json()
+      setUser(data)
+      return data
+    } catch (error) {
+      throw error
+    }
+  }
+
   return {
     user,
     partnerId,
@@ -167,5 +197,6 @@ export const useAuth = () => {
     logout,
     checkAuth,
     initializeAuth,
+    updateUser,
   }
 } 

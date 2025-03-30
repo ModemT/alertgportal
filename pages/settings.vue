@@ -39,25 +39,60 @@
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
-            <input type="text" class="input" value="สมชาย" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">นามสกุล</label>
-            <input type="text" class="input" value="ใจดี" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้</label>
+            <input 
+              type="text" 
+              v-model="userForm.username"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
-            <input type="email" class="input" value="somchai@example.com" />
+            <input 
+              type="email" 
+              v-model="userForm.email"
+              class="input" 
+              :disabled="loading"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
+            <input 
+              type="text" 
+              v-model="userForm.first_name"
+              class="input" 
+              :disabled="loading"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">นามสกุล</label>
+            <input 
+              type="text" 
+              v-model="userForm.last_name"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์</label>
-            <input type="tel" class="input" value="081-234-5678" />
+            <input 
+              type="tel" 
+              v-model="userForm.phone"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
         </div>
         
         <div class="mt-6">
-          <button class="btn btn-primary">บันทึกการเปลี่ยนแปลง</button>
+          <button 
+            class="btn btn-primary"
+            @click="handleUpdateUser"
+            :disabled="loading"
+          >
+            {{ loading ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง' }}
+          </button>
         </div>
       </div>
       
@@ -125,31 +160,65 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อบริษัท</label>
-            <input type="text" class="input" value="บริษัท อเลิร์ทจี จำกัด" />
+            <input 
+              type="text" 
+              v-model="userForm.company_name"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">เลขประจำตัวผู้เสียภาษี</label>
-            <input type="text" class="input" value="0123456789012" />
+            <input 
+              type="text" 
+              v-model="userForm.tax_id"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">ที่อยู่สำหรับเรียกเก็บเงิน</label>
-            <input type="text" class="input" value="123 ถนนสุขุมวิท แขวงคลองเตย" />
+            <input 
+              type="text" 
+              v-model="userForm.address"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">เขต/อำเภอ</label>
-            <input type="text" class="input" value="คลองเตย" />
+            <input 
+              type="text" 
+              v-model="userForm.district"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">จังหวัด</label>
-            <input type="text" class="input" value="กรุงเทพมหานคร" />
+            <input 
+              type="text" 
+              v-model="userForm.province"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">รหัสไปรษณีย์</label>
-            <input type="text" class="input" value="10110" />
+            <input 
+              type="text" 
+              v-model="userForm.postal_code"
+              class="input" 
+              :disabled="loading"
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">ประเทศ</label>
-            <select class="input">
+            <select 
+              v-model="userForm.country"
+              class="input"
+              :disabled="loading"
+            >
               <option value="th">ประเทศไทย</option>
               <option value="us">สหรัฐอเมริกา</option>
               <option value="uk">สหราชอาณาจักร</option>
@@ -208,15 +277,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue'
+import { useAuth } from '~/composables/useAuth'
+import { useApi } from '~/composables/useApi'
 
-const activeTab = ref('account');
+const { user, updateUser } = useAuth()
+const { getCurrentUser } = useApi()
+const loading = ref(false)
+const error = ref('')
+const success = ref('')
+
+const activeTab = ref('account')
 
 const tabs = [
   { id: 'account', name: 'บัญชี' },
   { id: 'payment', name: 'วิธีการชำระเงิน' },
   { id: 'notifications', name: 'การแจ้งเตือน' }
-];
+]
 
 const paymentMethods = [
   {
@@ -231,7 +308,7 @@ const paymentMethods = [
     details: '081-234-5678',
     default: false
   }
-];
+]
 
 const emailNotifications = [
   {
@@ -254,7 +331,7 @@ const emailNotifications = [
     description: 'รับอีเมลเมื่อใบแจ้งหนี้ใกล้ถึงกำหนดชำระ',
     enabled: false
   }
-];
+]
 
 const smsNotifications = [
   {
@@ -272,5 +349,70 @@ const smsNotifications = [
     description: 'รับ SMS เมื่อใบแจ้งหนี้ใกล้ถึงกำหนดชำระ',
     enabled: false
   }
-];
+]
+
+const userForm = ref({
+  username: '',
+  email: '',
+  first_name: '',
+  last_name: '',
+  phone: '',
+  company_name: '',
+  tax_id: '',
+  address: '',
+  district: '',
+  province: '',
+  postal_code: '',
+  country: 'th'
+})
+
+const fetchUserData = async () => {
+  try {
+    loading.value = true
+    console.log('Fetching user data...')
+    const data = await getCurrentUser()
+    console.log('Raw API response:', data)
+    console.log('Email from API:', data.email)
+    
+    // Populate form with user data
+    userForm.value = {
+      username: data.username || '',
+      email: data.email || '',
+      first_name: data.first_name || '',
+      last_name: data.last_name || '',
+      phone: data.phone || '',
+      company_name: data.company_name || '',
+      tax_id: data.tax_id || '',
+      address: data.address || '',
+      district: data.district || '',
+      province: data.province || '',
+      postal_code: data.postal_code || '',
+      country: data.country || 'th'
+    }
+    console.log('Form after update:', userForm.value)
+    console.log('Form email value:', userForm.value.email)
+  } catch (err) {
+    error.value = 'Failed to load user data'
+    console.error('Error fetching user data:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleUpdateUser = async () => {
+  try {
+    loading.value = true
+    await updateUser(userForm.value)
+    success.value = 'User data updated successfully'
+  } catch (err) {
+    error.value = 'Failed to update user data'
+    console.error('Error updating user:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchUserData()
+})
 </script> 

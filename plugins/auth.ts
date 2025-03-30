@@ -1,13 +1,32 @@
-export default defineNuxtPlugin((nuxtApp) => {
-  // Run before any page is mounted
-  nuxtApp.hook('app:beforeMount', async () => {
-    const token = localStorage.getItem('token')
-    const currentPath = window.location.pathname
+import { defineNuxtPlugin } from '#app'
+import { useAuth } from '~/composables/useAuth'
 
-    // If not authenticated and not on login/register page, redirect to login
-    if (!token && currentPath !== '/login' && currentPath !== '/register') {
-      await navigateTo('/login')
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const { checkAuth } = useAuth()
+
+  // Add navigation guard
+  nuxtApp.vueApp.config.globalProperties.$router.beforeEach(async (to: any, from: any, next: any) => {
+    // Always allow access to login, register, and QR pages
+    if (to.path === '/login' || to.path === '/register' || to.path.startsWith('/qr/')) {
+      next()
+      return
     }
-    // If authenticated, allow access to all pages
+
+    try {
+      const isAuthenticated = await checkAuth()
+      if (!isAuthenticated) {
+        next({
+          path: '/login',
+          query: { redirect: to.fullPath }
+        })
+      } else {
+        next()
+      }
+    } catch (error) {
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      })
+    }
   })
 }) 
