@@ -46,6 +46,11 @@ const checkChargeStatus = async (id: string) => {
         clearInterval(statusCheckInterval.value)
         statusCheckInterval.value = null
       }
+      // Stop the timer when charge is completed
+      if (data.status === 'completed' && timerInterval.value) {
+        clearInterval(timerInterval.value)
+        timerInterval.value = null
+      }
     }
   } catch (err) {
     console.error('Error checking charge status:', err)
