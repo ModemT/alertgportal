@@ -15,6 +15,7 @@
             <option value="completed">สำเร็จ</option>
             <option value="refunded">คืนเงินแล้ว</option>
             <option value="failed">ล้มเหลว</option>
+            <option value="cancelled">ยกเลิก</option>
           </select>
         </div>
         <div>
