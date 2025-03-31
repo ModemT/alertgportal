@@ -36,23 +36,6 @@
         </div>
       </div>
       
-      <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 border-l-4 border-purple-500">
-        <div class="flex items-center">
-          <div class="flex-1">
-            <h3 class="text-gray-500 text-sm font-medium">ใบแจ้งหนี้</h3>
-            <p class="text-xl sm:text-2xl font-bold text-gray-800">{{ totalInvoices }}</p>
-            <p class="text-sm text-green-500 mt-1">
-              <span class="font-medium">+{{ invoiceChange }}%</span> จากเดือนที่แล้ว
-            </p>
-          </div>
-          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-100 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-      
       <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 border-l-4 border-yellow-500">
         <div class="flex items-center">
           <div class="flex-1">
@@ -150,11 +133,9 @@ const api = useApi()
 // Dashboard stats
 const totalRevenue = ref(0)
 const totalCustomers = ref(0)
-const totalInvoices = ref(0)
 const pendingAmount = ref(0)
 const revenueChange = ref(0)
 const customerChange = ref(0)
-const invoiceChange = ref(0)
 const pendingChange = ref(0)
 
 // Recent transactions
@@ -251,9 +232,6 @@ const fetchDashboardData = async () => {
     // Set total customers
     totalCustomers.value = shoppers.length;
 
-    // Calculate invoice count
-    totalInvoices.value = charges.length;
-
     // Calculate changes by comparing with previous month
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -286,24 +264,6 @@ const fetchDashboardData = async () => {
     // Calculate customer growth
     customerChange.value = previousMonthShoppers.length > 0
       ? ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
-      : 0;
-
-    // Calculate invoice growth
-    const currentMonthCharges = charges.filter(charge => {
-      const chargeDate = new Date(charge.created_at);
-      return chargeDate >= currentMonth;
-    });
-
-    const previousMonthCharges = charges.filter(charge => {
-      const chargeDate = new Date(charge.created_at);
-      return chargeDate >= previousMonth && chargeDate < currentMonth;
-    });
-
-    const currentMonthInvoices = currentMonthCharges.length;
-    const previousMonthInvoices = previousMonthCharges.length;
-
-    invoiceChange.value = previousMonthInvoices > 0
-      ? ((currentMonthInvoices - previousMonthInvoices) / previousMonthInvoices) * 100
       : 0;
 
     // Calculate pending amount change
