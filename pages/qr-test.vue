@@ -59,14 +59,8 @@ const handleEscape = (event: KeyboardEvent) => {
 }
 
 const handleSubmit = () => {
-  router.push({
-    path: `/qr/${partnerId.value}`,
-    query: {
-      amount: amount.value,
-      currency: currency.value,
-      ...(selectedShopperId.value && { shopper_id: selectedShopperId.value })
-    }
-  })
+  const url = `/qr/${partnerId.value}?amount=${amount.value}&currency=${currency.value}${selectedShopperId.value ? `&shopper_id=${selectedShopperId.value}` : ''}`
+  window.open(url, '_blank')
 }
 
 onMounted(async () => {
@@ -88,13 +82,13 @@ onUnmounted(() => {
   <div class="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
     <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 transform transition-all duration-300 hover:shadow-2xl">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">QR Payment Test</h1>
-        <p class="text-gray-600 mt-2">Enter payment details to test QR flow</p>
+        <h1 class="text-3xl font-bold text-gray-800">ทดสอบ QR Code ชำระเงิน</h1>
+        <p class="text-gray-600 mt-2">กรอกรายละเอียดการชำระเงินเพื่อทดสอบ QR Code</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="space-y-6">
         <div>
-          <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+          <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">จำนวนเงิน</label>
           <input
             id="amount"
             v-model="amount"
@@ -105,7 +99,7 @@ onUnmounted(() => {
         </div>
 
         <div>
-          <label for="currency" class="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+          <label for="currency" class="block text-sm font-medium text-gray-700 mb-2">สกุลเงิน</label>
           <select
             id="currency"
             v-model="currency"
@@ -119,14 +113,14 @@ onUnmounted(() => {
         </div>
 
         <div>
-          <label for="shopper" class="block text-sm font-medium text-gray-700 mb-2">Shopper</label>
+          <label for="shopper" class="block text-sm font-medium text-gray-700 mb-2">ผู้ซื้อ</label>
           <div class="relative" ref="dropdownRef">
             <div class="relative">
               <input
                 id="shopper-search"
                 v-model="searchQuery"
                 type="text"
-                placeholder="Search shoppers... (Optional)"
+                placeholder="ค้นหาผู้ซื้อ... (ไม่บังคับ)"
                 class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 @focus="isDropdownOpen = true"
               />
@@ -144,7 +138,7 @@ onUnmounted(() => {
             <!-- Selected shopper preview -->
             <div v-if="selectedShopper" class="mt-2 p-2 bg-gray-50 rounded-lg">
               <div class="text-sm">
-                <span class="font-medium">Selected:</span> {{ selectedShopper.name }}
+                <span class="font-medium">เลือก:</span> {{ selectedShopper.name }}
               </div>
               <div class="text-xs text-gray-500">{{ selectedShopper.email }}</div>
             </div>
@@ -158,7 +152,7 @@ onUnmounted(() => {
                 <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
               </div>
               <div v-else-if="filteredShoppers.length === 0" class="p-4 text-center text-gray-500">
-                No shoppers found
+                ไม่พบผู้ซื้อ
               </div>
               <div v-else>
                 <button
@@ -181,10 +175,10 @@ onUnmounted(() => {
         </div>
 
         <div class="bg-gray-50 p-4 rounded-xl">
-          <h3 class="text-sm font-medium text-gray-700 mb-2">Pre-filled Information</h3>
+          <h3 class="text-sm font-medium text-gray-700 mb-2">ข้อมูลที่กรอกไว้</h3>
           <div class="space-y-2 text-sm text-gray-600">
-            <p><span class="font-medium">Partner ID:</span> {{ partnerId }}</p>
-            <p v-if="selectedShopperId"><span class="font-medium">Selected Shopper ID:</span> {{ selectedShopperId }}</p>
+            <p><span class="font-medium">รหัสพาร์ทเนอร์:</span> {{ partnerId }}</p>
+            <p v-if="selectedShopperId"><span class="font-medium">รหัสผู้ซื้อที่เลือก:</span> {{ selectedShopperId }}</p>
           </div>
         </div>
 
@@ -192,7 +186,7 @@ onUnmounted(() => {
           type="submit"
           class="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
         >
-          Generate QR Code
+          สร้าง QR Code
         </button>
       </form>
     </div>
