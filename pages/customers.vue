@@ -7,10 +7,10 @@
     
     <!-- Filters -->
     <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
-          <select class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
+          <select v-model="statusFilter" class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
             <option value="">ทุกสถานะ</option>
             <option value="active">ใช้งาน</option>
             <option value="inactive">ไม่ใช้งาน</option>
@@ -18,7 +18,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เข้าร่วม</label>
-          <select class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
+          <select v-model="timeFilter" class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
             <option value="7">7 วันที่ผ่านมา</option>
             <option value="30">30 วันที่ผ่านมา</option>
             <option value="90">90 วันที่ผ่านมา</option>
@@ -26,9 +26,38 @@
             <option value="custom">กำหนดเอง</option>
           </select>
         </div>
+        <div v-if="timeFilter === 'custom'" class="col-span-1 sm:col-span-2">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+              <input 
+                type="date" 
+                v-model="startDate" 
+                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+              <input 
+                type="date" 
+                v-model="endDate" 
+                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+              />
+            </div>
+          </div>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
-          <input type="text" placeholder="ค้นหาลูกค้า..." class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" />
+          <input v-model="searchQuery" type="text" placeholder="ค้นหาลูกค้า..." class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" />
+        </div>
+        <div class="flex items-end">
+          <button 
+            @click="exportToCSV" 
+            class="btn btn-secondary text-sm w-full"
+            :disabled="isExporting"
+          >
+            {{ isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV' }}
+          </button>
         </div>
       </div>
     </div>
@@ -60,7 +89,7 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="customer in shoppers" :key="customer.id">
+            <tr v-for="customer in paginatedShoppers" :key="customer.id">
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center">
                   <div class="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
@@ -146,7 +175,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
 import ShopperDetailsModal from '~/components/ShopperDetailsModal.vue'
 import CreateCustomerModal from '~/components/CreateCustomerModal.vue'
@@ -156,9 +185,145 @@ const { shoppers, loading, error, fetchShoppers } = useShoppers()
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 const totalItems = ref(0)
+const totalPages = ref(0)
 const isModalOpen = ref(false)
 const selectedShopperId = ref('')
 const isCreateModalOpen = ref(false)
+const statusFilter = ref('')
+const timeFilter = ref('')
+const searchQuery = ref('')
+const startDate = ref('')
+const endDate = ref('')
+const isExporting = ref(false)
+
+const filteredShoppers = computed(() => {
+  let filtered = [...shoppers.value]
+
+  // Filter by status
+  if (statusFilter.value) {
+    filtered = filtered.filter(shopper => shopper.status === statusFilter.value)
+  }
+
+  // Filter by time range
+  if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
+    const start = new Date(startDate.value)
+    const end = new Date(endDate.value)
+    end.setHours(23, 59, 59, 999) // Set to end of day
+    
+    filtered = filtered.filter(shopper => {
+      const shopperDate = new Date(shopper.created_at)
+      return shopperDate >= start && shopperDate <= end
+    })
+  } else if (timeFilter.value && timeFilter.value !== 'custom') {
+    const days = parseInt(timeFilter.value)
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - days)
+    cutoffDate.setHours(0, 0, 0, 0) // Set to start of day
+    
+    filtered = filtered.filter(shopper => {
+      const shopperDate = new Date(shopper.created_at)
+      return shopperDate >= cutoffDate
+    })
+  }
+
+  // Filter by search query
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(shopper => 
+      shopper.name.toLowerCase().includes(query) ||
+      shopper.email.toLowerCase().includes(query) ||
+      shopper.phone.toLowerCase().includes(query) ||
+      shopper.account.toLowerCase().includes(query)
+    )
+  }
+
+  // Sort by created_at in descending order (newest first)
+  return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+})
+
+const paginatedShoppers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredShoppers.value.slice(start, end)
+})
+
+const updatePagination = () => {
+  totalItems.value = filteredShoppers.value.length
+  totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = Math.max(1, totalPages.value)
+  }
+}
+
+// Watch filters to update pagination
+watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
+  currentPage.value = 1 // Reset to first page when filters change
+  updatePagination()
+})
+
+// Watch for timeFilter changes to reset date range
+watch(timeFilter, (newValue) => {
+  if (newValue !== 'custom') {
+    startDate.value = ''
+    endDate.value = ''
+  }
+})
+
+const exportToCSV = () => {
+  try {
+    isExporting.value = true
+    
+    // Get filtered shoppers based on current filters
+    const filteredData = filteredShoppers.value
+
+    // Prepare CSV data
+    const headers = [
+      'รหัสลูกค้า',
+      'ชื่อ',
+      'อีเมล',
+      'เบอร์โทร',
+      'เลขบัญชี',
+      'วันที่เข้าร่วม',
+      'การชำระเงินทั้งหมด',
+      'มูลค่ารวม',
+      'สถานะ'
+    ]
+
+    const csvData = filteredData.map(shopper => [
+      shopper.id,
+      shopper.name,
+      shopper.email,
+      shopper.phone,
+      shopper.account,
+      formatDate(shopper.created_at),
+      shopper.total_completed_charges?.THB || '0.00',
+      formatCurrency(shopper.total_completed_charges?.THB || '0.00'),
+      shopper.status
+    ])
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('Error exporting to CSV:', error)
+    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV')
+  } finally {
+    isExporting.value = false
+  }
+}
 
 const fetchPage = async () => {
   const skip = (currentPage.value - 1) * itemsPerPage.value

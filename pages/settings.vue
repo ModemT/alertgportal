@@ -369,10 +369,7 @@ const userForm = ref({
 const fetchUserData = async () => {
   try {
     loading.value = true
-    console.log('Fetching user data...')
     const data = await getCurrentUser()
-    console.log('Raw API response:', data)
-    console.log('Email from API:', data.email)
     
     // Populate form with user data
     userForm.value = {
@@ -389,11 +386,9 @@ const fetchUserData = async () => {
       postal_code: data.postal_code || '',
       country: data.country || 'th'
     }
-    console.log('Form after update:', userForm.value)
-    console.log('Form email value:', userForm.value.email)
+
   } catch (err) {
     error.value = 'Failed to load user data'
-    console.error('Error fetching user data:', err)
   } finally {
     loading.value = false
   }

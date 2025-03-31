@@ -7,7 +7,7 @@
     
     <!-- Filters -->
     <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
           <select v-model="statusFilter" class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
@@ -28,9 +28,38 @@
             <option value="custom">กำหนดเอง</option>
           </select>
         </div>
+        <div v-if="timeFilter === 'custom'" class="col-span-1 sm:col-span-2">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+              <input 
+                type="date" 
+                v-model="startDate" 
+                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+              <input 
+                type="date" 
+                v-model="endDate" 
+                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+              />
+            </div>
+          </div>
+        </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
           <input v-model="searchQuery" type="text" placeholder="ค้นหาการชำระเงิน..." class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" />
+        </div>
+        <div class="flex items-end">
+          <button 
+            @click="exportToCSV" 
+            class="btn btn-secondary text-sm w-full"
+            :disabled="isExporting"
+          >
+            {{ isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV' }}
+          </button>
         </div>
       </div>
     </div>
@@ -135,6 +164,9 @@ const loading = ref(false)
 const error = ref(null)
 const isModalOpen = ref(false)
 const selectedChargeId = ref('')
+const startDate = ref('')
+const endDate = ref('')
+const isExporting = ref(false)
 
 const filteredCharges = computed(() => {
   let filtered = [...charges.value]
@@ -145,7 +177,16 @@ const filteredCharges = computed(() => {
   }
 
   // Filter by time range
-  if (timeFilter.value && timeFilter.value !== 'custom') {
+  if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
+    const start = new Date(startDate.value)
+    const end = new Date(endDate.value)
+    end.setHours(23, 59, 59, 999) // Set to end of day
+    
+    filtered = filtered.filter(charge => {
+      const chargeDate = new Date(charge.created_at)
+      return chargeDate >= start && chargeDate <= end
+    })
+  } else if (timeFilter.value && timeFilter.value !== 'custom') {
     const days = parseInt(timeFilter.value)
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - days)
@@ -266,6 +307,104 @@ const closeChargeDetails = () => {
   isModalOpen.value = false
   selectedChargeId.value = ''
 }
+
+const exportToCSV = () => {
+  try {
+    isExporting.value = true
+    
+    // Get filtered charges based on date range
+    let filteredData = [...charges.value]
+    
+    // Apply date range filter
+    if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
+      const start = new Date(startDate.value)
+      const end = new Date(endDate.value)
+      end.setHours(23, 59, 59, 999) // Set to end of day
+      
+      filteredData = filteredData.filter(charge => {
+        const chargeDate = new Date(charge.created_at)
+        return chargeDate >= start && chargeDate <= end
+      })
+    } else if (timeFilter.value && timeFilter.value !== 'custom') {
+      const days = parseInt(timeFilter.value)
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - days)
+      filteredData = filteredData.filter(charge => new Date(charge.created_at) >= cutoffDate)
+    }
+
+    // Apply status filter
+    if (statusFilter.value) {
+      filteredData = filteredData.filter(charge => charge.status === statusFilter.value)
+    }
+
+    // Apply search filter
+    if (searchQuery.value) {
+      const query = searchQuery.value.toLowerCase()
+      filteredData = filteredData.filter(charge => 
+        charge.id.toLowerCase().includes(query) ||
+        charge.description?.toLowerCase().includes(query) ||
+        charge.shopper_id?.toLowerCase().includes(query) ||
+        charge.amount.toString().includes(query)
+      )
+    }
+
+    // Sort by created_at in descending order
+    filteredData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+    // Prepare CSV data
+    const headers = [
+      'รหัส',
+      'รหัสผู้ซื้อ',
+      'รายละเอียด',
+      'จำนวนเงิน',
+      'สกุลเงิน',
+      'สถานะ',
+      'วันที่สร้าง',
+      'วันที่อัปเดต'
+    ]
+
+    const csvData = filteredData.map(charge => [
+      charge.id,
+      charge.shopper_id || '',
+      charge.description || '',
+      charge.amount,
+      charge.currency,
+      getStatusText(charge.status),
+      formatDate(charge.created_at),
+      formatDate(charge.updated_at)
+    ])
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n')
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('Error exporting to CSV:', error)
+    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV')
+  } finally {
+    isExporting.value = false
+  }
+}
+
+// Watch for timeFilter changes to reset date range
+watch(timeFilter, (newValue) => {
+  if (newValue !== 'custom') {
+    startDate.value = ''
+    endDate.value = ''
+  }
+})
 
 onMounted(() => {
   fetchCharges()

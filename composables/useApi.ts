@@ -15,12 +15,7 @@ export function useApi() {
 
   const get = async (endpoint: string, options: RequestInit = {}) => {
     try {
-      console.log('Making GET request to:', `${apiBase}${endpoint}`)
-      console.log('With headers:', {
-        ...getHeaders(),
-        ...options.headers
-      })
-      
+
       const response = await fetch(`${apiBase}${endpoint}`, {
         ...options,
         method: 'GET',
@@ -36,7 +31,6 @@ export function useApi() {
       }
 
       const data = await response.json()
-      console.log('API response data:', data)
       return data
     } catch (error) {
       console.error('API GET Error:', error)

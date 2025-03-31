@@ -83,14 +83,6 @@ const createChart = async () => {
         }
       });
 
-      // Log monthly data for debugging
-      if (index === 0) { // Only log current month
-        console.log('Current month charges:', {
-          month: getThaiMonth(month),
-          totalCharges: monthCharges.length,
-          charges: monthCharges
-        });
-      }
       
       const revenue = monthCharges.reduce((sum, charge) => {
         try {
@@ -128,15 +120,6 @@ const createChart = async () => {
         }
       }, 0);
 
-      // Log revenue/expense data for debugging
-      if (index === 0) { // Only log current month
-        console.log('Current month summary:', {
-          month: getThaiMonth(month),
-          revenue,
-          expenses
-        });
-      }
-      
       return {
         month: getThaiMonth(month),
         revenue,
