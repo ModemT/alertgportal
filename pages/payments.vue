@@ -47,6 +47,7 @@
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สร้าง</th>
+              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่อัปเดต</th>
               <th class="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">การกระทำ</th>
             </tr>
           </thead>
@@ -62,6 +63,7 @@
                 </span>
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.created_at) }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.updated_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
                 <button @click="openChargeDetails(charge.id)" class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
                 <button class="text-primary-600 hover:text-primary-900">แก้ไข</button>
@@ -161,7 +163,8 @@ const filteredCharges = computed(() => {
     )
   }
 
-  return filtered
+  // Sort by created_at in descending order (newest first)
+  return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 })
 
 const paginatedCharges = computed(() => {
@@ -205,11 +208,15 @@ const formatAmount = (amount) => {
 }
 
 const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('th-TH', {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return new Intl.DateTimeFormat('th-TH', {
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
-  })
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date)
 }
 
 const getStatusClass = (status) => {
