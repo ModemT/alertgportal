@@ -21,6 +21,8 @@ const chargeId = ref<string | null>(null)
 const chargeStatus = ref<string>('pending')
 const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
+const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
+const timerInterval = ref<number | null>(null)
 
 const checkChargeStatus = async (id: string) => {
   try {
@@ -142,6 +144,29 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
   }
 }
 
+// Add timer function
+const startTimer = () => {
+  // Update timer every second
+  timerInterval.value = window.setInterval(() => {
+    if (timeLeft.value > 0) {
+      timeLeft.value--
+    } else {
+      // Time's up, close the page
+      if (chargeId.value) {
+        cancelCharge(chargeId.value)
+      }
+      window.close()
+    }
+  }, 1000)
+}
+
+// Format time for display
+const formatTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
 // Create charge and handle QR page setup when mounted
 onMounted(() => {
   if (route.path.startsWith('/qr/')) {
@@ -151,6 +176,9 @@ onMounted(() => {
     
     // Add beforeunload event listener
     window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    // Start the timer
+    startTimer()
   }
 })
 
@@ -161,6 +189,9 @@ onBeforeUnmount(() => {
   }
   if (statusCheckInterval.value) {
     clearInterval(statusCheckInterval.value)
+  }
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
   }
   window.removeEventListener('beforeunload', handleBeforeUnload)
 })
@@ -219,6 +250,10 @@ const handleCancel = () => {
         <div class="text-center">
           <h1 class="text-3xl font-bold mb-6 text-gray-800">QR Code ชำระเงิน</h1>
           <div class="space-y-4">
+            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+              <span class="text-gray-600">เวลาที่เหลือ:</span>
+              <span class="font-medium text-gray-800">{{ formatTime(timeLeft) }}</span>
+            </div>
             <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
               <span class="text-gray-600">รหัสพาร์ทเนอร์:</span>
               <span class="font-medium text-gray-800">{{ partnerId }}</span>
