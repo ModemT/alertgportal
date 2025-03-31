@@ -19,6 +19,7 @@ const selectedShopperId = ref<string>('')
 const searchQuery = ref<string>('')
 const isDropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const formSubmitted = ref(false)
 
 // Fetch user profile to get partner ID
 const fetchUserProfile = async () => {
@@ -59,8 +60,15 @@ const handleEscape = (event: KeyboardEvent) => {
 }
 
 const handleSubmit = () => {
+  formSubmitted.value = true
+  
+  if (!selectedShopperId.value) {
+    return
+  }
+  
   const url = `/qr/${partnerId.value}?amount=${amount.value}&currency=${currency.value}${selectedShopperId.value ? `&shopper_id=${selectedShopperId.value}` : ''}`
   window.open(url, '_blank')
+  formSubmitted.value = false
 }
 
 onMounted(async () => {
@@ -113,16 +121,17 @@ onUnmounted(() => {
         </div>
 
         <div>
-          <label for="shopper" class="block text-sm font-medium text-gray-700 mb-2">ผู้ซื้อ</label>
+          <label for="shopper" class="block text-sm font-medium text-gray-700 mb-2">ผู้ซื้อ <span class="text-red-500">*</span></label>
           <div class="relative" ref="dropdownRef">
             <div class="relative">
               <input
                 id="shopper-search"
                 v-model="searchQuery"
                 type="text"
-                placeholder="ค้นหาผู้ซื้อ... (ไม่บังคับ)"
+                placeholder="ค้นหาผู้ซื้อ..."
                 class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 @focus="isDropdownOpen = true"
+                :class="{'border-red-500': !selectedShopperId && formSubmitted}"
               />
               <button
                 type="button"
@@ -172,6 +181,7 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
+          <p v-if="!selectedShopperId" class="mt-1 text-sm text-red-500">กรุณาเลือกผู้ซื้อ</p>
         </div>
 
         <div class="bg-gray-50 p-4 rounded-xl">
@@ -179,12 +189,14 @@ onUnmounted(() => {
           <div class="space-y-2 text-sm text-gray-600">
             <p><span class="font-medium">รหัสพาร์ทเนอร์:</span> {{ partnerId }}</p>
             <p v-if="selectedShopperId"><span class="font-medium">รหัสผู้ซื้อที่เลือก:</span> {{ selectedShopperId }}</p>
+            <p v-else class="text-red-500"><span class="font-medium">รหัสผู้ซื้อที่เลือก:</span> ยังไม่ได้เลือก</p>
           </div>
         </div>
 
         <button
           type="submit"
-          class="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
+          :disabled="!selectedShopperId"
+          class="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           สร้าง QR Code
         </button>
