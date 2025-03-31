@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
+import { useRuntimeConfig } from '#app'
 
 definePageMeta({
   layout: 'qr'
 })
 
 const route = useRoute()
+const config = useRuntimeConfig()
+const apiBase = config.public.apiBase as string
 const partnerId = route.params.partner_id as string
 const amount = Number(route.query.amount) || 10000 // Default to 10000 if not provided
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
@@ -21,7 +24,7 @@ const showQRCode = ref<boolean>(false)
 
 const checkChargeStatus = async (id: string) => {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/charges/${id}`, {
+    const response = await fetch(`${apiBase}/charges/${id}`, {
       headers: {
         'accept': 'application/json',
         'x-partner-id': partnerId,
@@ -61,7 +64,7 @@ const cancelCharge = async (id: string) => {
     isLoading.value = true
     errorMessage.value = null
 
-    const response = await fetch(`http://127.0.0.1:8000/charges/${id}/cancel`, {
+    const response = await fetch(`${apiBase}/charges/${id}/cancel`, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
@@ -94,7 +97,7 @@ const createCharge = async () => {
     isLoading.value = true
     errorMessage.value = null
 
-    const response = await fetch('http://127.0.0.1:8000/charges', {
+    const response = await fetch(`${apiBase}/charges`, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
@@ -135,7 +138,7 @@ const handleBeforeUnload = (event: BeforeUnloadEvent) => {
     // Use sendBeacon for more reliable sending during page unload
     const data = new FormData()
     data.append('charge_id', chargeId.value)
-    navigator.sendBeacon(`http://127.0.0.1:8000/charges/${chargeId.value}/cancel`, data)
+    navigator.sendBeacon(`${apiBase}/charges/${chargeId.value}/cancel`, data)
   }
 }
 

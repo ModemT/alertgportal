@@ -1,0 +1,200 @@
+<script setup lang="ts">
+import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useShoppers } from '~/composables/useShoppers'
+import { useApi } from '~/composables/useApi'
+
+definePageMeta({
+  layout: 'default'
+})
+
+const router = useRouter()
+const api = useApi()
+const { shoppers, loading: shoppersLoading, fetchShoppers } = useShoppers()
+
+const amount = ref<number>(5000)
+const currency = ref<string>('THB')
+const partnerId = ref<string>('')
+const selectedShopperId = ref<string>('')
+const searchQuery = ref<string>('')
+const isDropdownOpen = ref(false)
+const dropdownRef = ref<HTMLElement | null>(null)
+
+// Fetch user profile to get partner ID
+const fetchUserProfile = async () => {
+  try {
+    const data = await api.get('/users/me')
+    partnerId.value = data.partner_id
+  } catch (error) {
+    console.error('Error fetching user profile:', error)
+  }
+}
+
+// Filter shoppers based on search query
+const filteredShoppers = computed(() => {
+  if (!searchQuery.value) return shoppers.value
+  const query = searchQuery.value.toLowerCase()
+  return shoppers.value.filter(shopper => 
+    shopper.name.toLowerCase().includes(query) ||
+    shopper.email.toLowerCase().includes(query) ||
+    shopper.phone.includes(query)
+  )
+})
+
+// Get selected shopper details
+const selectedShopper = computed(() => {
+  return shoppers.value.find(shopper => shopper.id === selectedShopperId.value)
+})
+
+const handleClickOutside = (event: MouseEvent) => {
+  if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
+    isDropdownOpen.value = false
+  }
+}
+
+const handleEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
+    isDropdownOpen.value = false
+  }
+}
+
+const handleSubmit = () => {
+  router.push({
+    path: `/qr/${partnerId.value}`,
+    query: {
+      amount: amount.value,
+      currency: currency.value,
+      ...(selectedShopperId.value && { shopper_id: selectedShopperId.value })
+    }
+  })
+}
+
+onMounted(async () => {
+  await Promise.all([
+    fetchUserProfile(),
+    fetchShoppers(0, 100) // Fetch up to 100 shoppers for the dropdown
+  ])
+  document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleEscape)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleEscape)
+})
+</script>
+
+<template>
+  <div class="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 transform transition-all duration-300 hover:shadow-2xl">
+      <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">QR Payment Test</h1>
+        <p class="text-gray-600 mt-2">Enter payment details to test QR flow</p>
+      </div>
+
+      <form @submit.prevent="handleSubmit" class="space-y-6">
+        <div>
+          <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+          <input
+            id="amount"
+            v-model="amount"
+            type="number"
+            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label for="currency" class="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+          <select
+            id="currency"
+            v-model="currency"
+            class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          >
+            <option value="THB">THB</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="shopper" class="block text-sm font-medium text-gray-700 mb-2">Shopper</label>
+          <div class="relative" ref="dropdownRef">
+            <div class="relative">
+              <input
+                id="shopper-search"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search shoppers... (Optional)"
+                class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                @focus="isDropdownOpen = true"
+              />
+              <button
+                type="button"
+                @click="isDropdownOpen = !isDropdownOpen"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            
+            <!-- Selected shopper preview -->
+            <div v-if="selectedShopper" class="mt-2 p-2 bg-gray-50 rounded-lg">
+              <div class="text-sm">
+                <span class="font-medium">Selected:</span> {{ selectedShopper.name }}
+              </div>
+              <div class="text-xs text-gray-500">{{ selectedShopper.email }}</div>
+            </div>
+
+            <!-- Dropdown -->
+            <div
+              v-if="isDropdownOpen"
+              class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+            >
+              <div v-if="shoppersLoading" class="p-4 text-center">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto"></div>
+              </div>
+              <div v-else-if="filteredShoppers.length === 0" class="p-4 text-center text-gray-500">
+                No shoppers found
+              </div>
+              <div v-else>
+                <button
+                  v-for="shopper in filteredShoppers"
+                  :key="shopper.id"
+                  type="button"
+                  @click="selectedShopperId = shopper.id"
+                  :class="[
+                    'w-full px-4 py-2 text-left hover:bg-gray-100 focus:outline-none focus:bg-gray-100',
+                    selectedShopperId === shopper.id ? 'bg-blue-50' : ''
+                  ]"
+                >
+                  <div class="font-medium">{{ shopper.name }}</div>
+                  <div class="text-sm text-gray-500">{{ shopper.email }}</div>
+                  <div class="text-sm text-gray-500">{{ shopper.phone }}</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 p-4 rounded-xl">
+          <h3 class="text-sm font-medium text-gray-700 mb-2">Pre-filled Information</h3>
+          <div class="space-y-2 text-sm text-gray-600">
+            <p><span class="font-medium">Partner ID:</span> {{ partnerId }}</p>
+            <p v-if="selectedShopperId"><span class="font-medium">Selected Shopper ID:</span> {{ selectedShopperId }}</p>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="w-full px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
+        >
+          Generate QR Code
+        </button>
+      </form>
+    </div>
+  </div>
+</template> 

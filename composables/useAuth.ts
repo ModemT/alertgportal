@@ -98,6 +98,8 @@ export const useAuth = () => {
   }
 
   const checkAuth = async () => {
+    if (!process.client) return false
+    
     const token = localStorage.getItem('token')
     if (!token) {
       clearUser()

@@ -112,8 +112,8 @@ const createChart = async () => {
       
       const expenses = monthCharges.reduce((sum, charge) => {
         try {
-          // Count both refunded and cancelled charges as expenses
-          if (charge.status === 'refunded' || charge.status === 'cancelled') {
+          // Only count refunded charges as expenses, not cancelled ones
+          if (charge.status === 'refunded') {
             const amount = Number(charge.amount);
             if (isNaN(amount)) {
               console.error('Invalid amount for charge:', charge);
