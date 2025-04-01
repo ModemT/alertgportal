@@ -13,7 +13,7 @@ const apiBase = config.public.apiBase as string
 const partnerId = route.params.partner_id as string
 const amount = Number(route.query.amount) || 10000 // Default to 10000 if not provided
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
-const shopperAccount = (route.query.shopper_account as string) || ''
+const shopperAccount = ref<string>('')
 const shopperId = ref<string>((route.query.shopper_id as string) || '')
 
 const isLoading = ref<boolean>(false)
@@ -48,6 +48,29 @@ const fetchShopperByAccount = async () => {
 
     const data = await response.json()
     shopperId.value = data.id
+    shopperAccount.value = data.account
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
+    console.error('Error fetching shopper:', err)
+  }
+}
+
+// Fetch shopper details by ID
+const fetchShopperById = async (id: string) => {
+  try {
+    const response = await fetch(`${apiBase}/shoppers/${id}`, {
+      headers: {
+        'accept': 'application/json',
+        'access-token': localStorage.getItem('token') || ''
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+    }
+
+    const data = await response.json()
+    shopperAccount.value = data.account
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
@@ -137,6 +160,9 @@ const createCharge = async () => {
     // If only shopper_account is provided, make sure we have fetched the shopper_id
     if (!shopperId.value && shopperAccount) {
       await fetchShopperByAccount()
+    } else if (shopperId.value) {
+      // If we have shopper ID, fetch the account number
+      await fetchShopperById(shopperId.value)
     }
 
     if (!shopperId.value) {
@@ -228,6 +254,9 @@ onMounted(async () => {
     // If we have a shopper account, fetch the shopper details first
     if (shopperAccount) {
       await fetchShopperByAccount()
+    } else if (shopperId.value) {
+      // If we have shopper ID, fetch the account number
+      await fetchShopperById(shopperId.value)
     }
     
     createCharge()
@@ -328,19 +357,11 @@ const handleCancel = () => {
               </div>
               <div class="grid grid-cols-1 gap-2">
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
-                  <span class="text-gray-600">รหัสพาร์ทเนอร์:</span>
-                  <span class="font-medium text-gray-800">{{ partnerId }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
                   <span class="text-gray-600">จำนวนเงิน:</span>
                   <span class="font-medium text-gray-800">{{ amount }} {{ currency }}</span>
                 </div>
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
-                  <span class="text-gray-600">รหัสผู้ซื้อ:</span>
-                  <span class="font-medium text-gray-800">{{ shopperId || 'รอดำเนินการ' }}</span>
-                </div>
-                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
-                  <span class="text-gray-600">เลขบัญชีผู้ซื้อ:</span>
+                  <span class="text-gray-600">เลขบัญชี:</span>
                   <span class="font-medium text-gray-800">{{ shopperAccount || 'รอดำเนินการ' }}</span>
                 </div>
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
