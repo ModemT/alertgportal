@@ -13,8 +13,8 @@ const apiBase = config.public.apiBase as string
 const partnerId = route.params.partner_id as string
 const amount = Number(route.query.amount) || 10000 // Default to 10000 if not provided
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
-const shopperId = (route.query.shopper_id as string) || ''
 const shopperAccount = (route.query.shopper_account as string) || ''
+const shopperId = ref<string>((route.query.shopper_id as string) || '')
 
 const isLoading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
@@ -26,8 +26,32 @@ const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
 const timerInterval = ref<number | null>(null)
 
 // Validate that either shopper_id or shopper_account is provided
-if (!shopperId && !shopperAccount) {
+if (!shopperId.value && !shopperAccount) {
   errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
+}
+
+// Fetch shopper details if account is provided
+const fetchShopperByAccount = async () => {
+  if (!shopperAccount) return
+
+  try {
+    const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount}`, {
+      headers: {
+        'accept': 'application/json',
+        'access-token': localStorage.getItem('token') || ''
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+    }
+
+    const data = await response.json()
+    shopperId.value = data.id
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
+    console.error('Error fetching shopper:', err)
+  }
 }
 
 const checkChargeStatus = async (id: string) => {
@@ -110,22 +134,13 @@ const createCharge = async () => {
     isLoading.value = true
     errorMessage.value = null
 
-    // If only shopper_account is provided, fetch the shopper_id first
-    let finalShopperId = shopperId
-    if (!shopperId && shopperAccount) {
-      const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount}`, {
-        headers: {
-          'accept': 'application/json',
-          'access-token': localStorage.getItem('token') || ''
-        }
-      })
+    // If only shopper_account is provided, make sure we have fetched the shopper_id
+    if (!shopperId.value && shopperAccount) {
+      await fetchShopperByAccount()
+    }
 
-      if (!response.ok) {
-        throw new Error('ไม่พบข้อมูลผู้ซื้อ')
-      }
-
-      const data = await response.json()
-      finalShopperId = data.id
+    if (!shopperId.value) {
+      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
     }
 
     const response = await fetch(`${apiBase}/charges`, {
@@ -140,7 +155,7 @@ const createCharge = async () => {
         currency: currency,
         description: 'QR Code Payment',
         charge_metadata: {},
-        shopper_id: finalShopperId
+        shopper_id: shopperId.value
       }),
     })
 
@@ -205,10 +220,16 @@ const formatTime = (seconds: number) => {
 }
 
 // Create charge and handle QR page setup when mounted
-onMounted(() => {
+onMounted(async () => {
   if (route.path.startsWith('/qr/')) {
     // Clear any stored redirect URL
     localStorage.removeItem('redirect')
+    
+    // If we have a shopper account, fetch the shopper details first
+    if (shopperAccount) {
+      await fetchShopperByAccount()
+    }
+    
     createCharge()
     
     // Add beforeunload event listener
@@ -263,8 +284,8 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
-    <div v-if="errorMessage !== null" class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
+  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 px-3 md:py-8 md:px-4">
+    <div v-if="errorMessage !== null" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
       <div class="mb-6">
         <svg class="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -279,117 +300,168 @@ const handleCancel = () => {
         ลองใหม่อีกครั้ง
       </button>
     </div>
-    <div v-else class="max-w-md w-full space-y-6">
-      <div class="bg-white rounded-2xl shadow-xl p-8 transform transition-all duration-300 hover:shadow-2xl">
-        <div class="text-center">
-          <h1 class="text-3xl font-bold mb-6 text-gray-800">QR Code ชำระเงิน</h1>
-          <div class="space-y-4">
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">เวลาที่เหลือ:</span>
-              <span class="font-medium text-gray-800">{{ formatTime(timeLeft) }}</span>
-            </div>
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">รหัสพาร์ทเนอร์:</span>
-              <span class="font-medium text-gray-800">{{ partnerId }}</span>
-            </div>
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">จำนวนเงิน:</span>
-              <span class="font-medium text-gray-800">{{ amount }} {{ currency }}</span>
-            </div>
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">รหัสผู้ซื้อ:</span>
-              <span class="font-medium text-gray-800">{{ shopperId }}</span>
-            </div>
-            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-              <span class="text-gray-600">สถานะ:</span>
-              <span :class="{
-                'px-3 py-1 rounded-full text-sm font-medium': true,
-                'bg-yellow-100 text-yellow-800': chargeStatus === 'pending',
-                'bg-green-100 text-green-800': chargeStatus === 'completed',
-                'bg-red-100 text-red-800': chargeStatus === 'cancelled'
-              }">
-                {{ 
-                  chargeStatus === 'pending' ? 'รอดำเนินการ' :
-                  chargeStatus === 'completed' ? 'ชำระเงินสำเร็จ' :
-                  chargeStatus === 'cancelled' ? 'ยกเลิกแล้ว' :
-                  chargeStatus
-                }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="chargeStatus === 'pending'" class="mt-8">
-          <div class="relative w-full aspect-square max-w-md mx-auto bg-white rounded-xl shadow-lg p-4 transform transition-all duration-300 hover:scale-105">
+    <div v-else class="max-w-5xl mx-auto">
+      <!-- Mobile QR Code View (Shows first on mobile) -->
+      <div v-if="chargeStatus === 'pending'" class="md:hidden mb-4">
+        <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
+          <div class="aspect-square">
             <img
               src="/assets/image/qr  interfood_page-0001.jpg"
               alt="QR Code ชำระเงิน"
               class="w-full h-full object-contain"
             />
           </div>
-          <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <div class="flex items-start">
-              <svg class="h-5 w-5 text-red-400 mr-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <div>
-                <p class="text-sm font-medium text-red-800 mb-1">คำเตือนสำคัญ</p>
-                <p class="text-sm text-red-700">
-                  การปิดแท็บหรือออกจากหน้านี้จะทำให้การชำระเงินถูกยกเลิกโดยอัตโนมัติ กรุณาอย่าปิดแท็บจนกว่าจะชำระเงินเสร็จสิ้น
-                </p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
+        <!-- Left Column: Information -->
+        <div class="space-y-3 md:space-y-4">
+          <div class="bg-white rounded-2xl shadow-xl p-4 md:p-5 transform transition-all duration-300 hover:shadow-2xl">
+            <div>
+              <div class="flex items-center justify-between mb-4">
+                <h1 class="text-lg md:text-xl font-bold text-gray-800">QR Code ชำระเงิน</h1>
+                <div class="flex items-center bg-gray-50 px-3 py-1 rounded-full">
+                  <span class="text-xs md:text-sm font-medium text-gray-600">เวลา: </span>
+                  <span class="text-xs md:text-sm font-bold text-gray-800 ml-1">{{ formatTime(timeLeft) }}</span>
+                </div>
               </div>
+              <div class="grid grid-cols-1 gap-2">
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">รหัสพาร์ทเนอร์:</span>
+                  <span class="font-medium text-gray-800">{{ partnerId }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">จำนวนเงิน:</span>
+                  <span class="font-medium text-gray-800">{{ amount }} {{ currency }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">รหัสผู้ซื้อ:</span>
+                  <span class="font-medium text-gray-800">{{ shopperId || 'รอดำเนินการ' }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">เลขบัญชีผู้ซื้อ:</span>
+                  <span class="font-medium text-gray-800">{{ shopperAccount || 'รอดำเนินการ' }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">สถานะ:</span>
+                  <span :class="{
+                    'px-2 py-1 rounded-full text-xs font-medium': true,
+                    'bg-yellow-100 text-yellow-800': chargeStatus === 'pending',
+                    'bg-green-100 text-green-800': chargeStatus === 'completed',
+                    'bg-red-100 text-red-800': chargeStatus === 'cancelled'
+                  }">
+                    {{ 
+                      chargeStatus === 'pending' ? 'รอดำเนินการ' :
+                      chargeStatus === 'completed' ? 'ชำระเงินสำเร็จ' :
+                      chargeStatus === 'cancelled' ? 'ยกเลิกแล้ว' :
+                      chargeStatus
+                    }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Warning Messages -->
+          <div class="space-y-2 md:space-y-3">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-2.5 md:p-3">
+              <div class="flex items-start">
+                <svg class="h-3.5 w-3.5 md:h-4 md:w-4 text-red-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p class="text-2xs md:text-xs font-medium text-red-800 mb-0.5">คำเตือนสำคัญ</p>
+                  <p class="text-2xs md:text-xs text-red-700">
+                    การปิดแท็บหรือออกจากหน้านี้จะทำให้การชำระเงินถูกยกเลิกโดยอัตโนมัติ กรุณาอย่าปิดแท็บจนกว่าจะชำระเงินเสร็จสิ้น
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-2.5 md:p-3">
+              <div class="flex items-start">
+                <svg class="h-3.5 w-3.5 md:h-4 md:w-4 text-yellow-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p class="text-2xs md:text-xs font-medium text-yellow-800 mb-0.5">ระวังมิจฉาชีพ</p>
+                  <p class="text-2xs md:text-xs text-yellow-700">
+                    โปรดตรวจสอบข้อมูลการชำระเงินให้ถูกต้อง อย่าสแกน QR Code จากแหล่งที่ไม่น่าเชื่อถือ และอย่าเปิดเผยข้อมูลส่วนตัวของคุณให้กับบุคคลอื่น หากพบเห็นการกระทำที่น่าสงสัย กรุณาแจ้งเจ้าหน้าที่ทันที
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="grid grid-cols-2 gap-2 md:flex md:justify-start md:space-x-4">
+            <button
+              @click="handleSaveQRCode"
+              :disabled="isLoading"
+              :class="[
+                'w-full md:w-auto px-3 py-2 rounded-xl font-medium text-white transition-all duration-300 text-xs md:text-sm',
+                isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 active:bg-blue-700 md:hover:bg-blue-700'
+              ]"
+            >
+              {{ isLoading ? 'กำลังบันทึก...' : 'บันทึก QR Code' }}
+            </button>
+            <button
+              @click="handleCancel"
+              :disabled="isLoading || !chargeId"
+              :class="[
+                'w-full md:w-auto px-3 py-2 rounded-xl font-medium text-white transition-all duration-300 text-xs md:text-sm',
+                isLoading || !chargeId ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 active:bg-red-700 md:hover:bg-red-700'
+              ]"
+            >
+              {{ isLoading ? 'กำลังยกเลิก...' : 'ยกเลิกการชำระเงิน' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: QR Code (Desktop) -->
+        <div v-if="chargeStatus === 'pending'" class="hidden md:block md:sticky md:top-8">
+          <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
+            <div class="aspect-square">
+              <img
+                src="/assets/image/qr  interfood_page-0001.jpg"
+                alt="QR Code ชำระเงิน"
+                class="w-full h-full object-contain"
+              />
             </div>
           </div>
         </div>
 
-        <div v-else-if="chargeStatus === 'completed'" class="mt-8 text-center">
-          <div class="h-64 bg-green-50 rounded-xl mb-4 flex items-center justify-center">
-            <svg class="h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Completed State -->
+        <div v-else-if="chargeStatus === 'completed'" class="bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center">
+          <div class="h-20 w-20 md:h-24 md:w-24 bg-green-50 rounded-xl mx-auto mb-4 flex items-center justify-center">
+            <svg class="h-10 w-10 md:h-12 md:w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p class="text-green-600 text-lg font-medium">ชำระเงินสำเร็จ</p>
-          <p class="text-gray-600 mt-2">กรุณาปิดแท็บนี้</p>
+          <p class="text-green-600 text-sm md:text-base font-medium">ชำระเงินสำเร็จ</p>
+          <p class="text-gray-600 mt-2 text-xs md:text-sm">กรุณาปิดแท็บนี้</p>
         </div>
 
-        <div v-else-if="chargeStatus === 'cancelled'" class="mt-8 text-center">
-          <div class="h-64 bg-gray-100 rounded-xl mb-4 flex items-center justify-center">
-            <svg class="h-16 w-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Cancelled State -->
+        <div v-else-if="chargeStatus === 'cancelled'" class="bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center">
+          <div class="h-20 w-20 md:h-24 md:w-24 bg-gray-100 rounded-xl mx-auto mb-4 flex items-center justify-center">
+            <svg class="h-10 w-10 md:h-12 md:w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p class="text-gray-600">การชำระเงินถูกยกเลิก</p>
+          <p class="text-gray-600 text-xs md:text-sm">การชำระเงินถูกยกเลิก</p>
         </div>
       </div>
 
-      <div class="flex flex-col items-center space-y-4">
-        <div class="flex space-x-4">
-          <button
-            @click="handleSaveQRCode"
-            v-if="chargeStatus === 'pending'"
-            :disabled="isLoading"
-            :class="[
-              'px-6 py-3 rounded-xl font-medium text-white transition-all duration-300 transform hover:scale-105',
-              isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-            ]"
-          >
-            {{ isLoading ? 'กำลังบันทึก...' : 'บันทึก QR Code' }}
-          </button>
-          <button
-            @click="handleCancel"
-            v-if="chargeStatus === 'pending'"
-            :disabled="isLoading || !chargeId"
-            :class="[
-              'px-6 py-3 rounded-xl font-medium text-white transition-all duration-300 transform hover:scale-105',
-              isLoading || !chargeId ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
-            ]"
-          >
-            {{ isLoading ? 'กำลังยกเลิก...' : 'ยกเลิกการชำระเงิน' }}
-          </button>
-        </div>
-
-        <p v-if="errorMessage" class="text-red-500 text-sm">{{ errorMessage }}</p>
-      </div>
+      <p v-if="errorMessage" class="text-red-500 text-2xs md:text-xs text-center mt-3 md:mt-4">{{ errorMessage }}</p>
     </div>
   </div>
-</template> 
+</template>
+
+<style>
+.text-2xs {
+  font-size: 0.625rem;
+  line-height: 0.75rem;
+}
+</style> 
