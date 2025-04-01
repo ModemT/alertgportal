@@ -12,11 +12,21 @@
               </h3>
               <form @submit.prevent="handleSubmit" class="mt-4 space-y-4">
                 <div>
-                  <label for="name" class="block text-sm font-medium text-gray-700">ชื่อ</label>
+                  <label for="name" class="block text-sm font-medium text-gray-700">ชื่อ (ภาษาอังกฤษ)</label>
                   <input
                     type="text"
                     id="name"
                     v-model="form.name"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="thai_name" class="block text-sm font-medium text-gray-700">ชื่อ (ภาษาไทย)</label>
+                  <input
+                    type="text"
+                    id="thai_name"
+                    v-model="form.thai_name"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -94,6 +104,7 @@ const { createShopper } = useShoppers()
 const loading = ref(false)
 const form = ref({
   name: '',
+  thai_name: '',
   email: '',
   phone: '',
   account: ''

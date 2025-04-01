@@ -4,6 +4,7 @@ import { useApi } from './useApi'
 interface Shopper {
   id: string
   name: string
+  thai_name: string
   email: string
   phone: string
   account: string
@@ -15,6 +16,7 @@ interface Shopper {
 
 interface CreateShopperData {
   name: string
+  thai_name: string
   email: string
   phone: string
   account: string

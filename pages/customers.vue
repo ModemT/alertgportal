@@ -231,6 +231,7 @@ const filteredShoppers = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(shopper => 
       shopper.name.toLowerCase().includes(query) ||
+      shopper.thai_name.toLowerCase().includes(query) ||
       shopper.email.toLowerCase().includes(query) ||
       shopper.phone.toLowerCase().includes(query) ||
       shopper.account.toLowerCase().includes(query)

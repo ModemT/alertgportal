@@ -31,6 +31,7 @@
                   </div>
                   <div class="ml-4">
                     <h3 class="text-lg font-medium text-gray-900">{{ shopper?.name }}</h3>
+                    <p class="text-sm text-gray-500">{{ shopper?.thai_name }}</p>
                     <div class="mt-1 text-sm text-gray-500">
                       <p>{{ shopper?.email }}</p>
                       <p>{{ shopper?.phone }}</p>
