@@ -20,6 +20,7 @@ const isLoading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
 const chargeId = ref<string | null>(null)
 const chargeStatus = ref<string>('pending')
+const chargeDescription = ref<string>('')
 const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
 const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
@@ -92,6 +93,7 @@ const checkChargeStatus = async (id: string) => {
 
     const data = await response.json()
     chargeStatus.value = data.status
+    chargeDescription.value = data.description
 
     // If charge is completed or cancelled, stop checking
     if (data.status === 'completed' || data.status === 'cancelled') {
@@ -99,8 +101,8 @@ const checkChargeStatus = async (id: string) => {
         clearInterval(statusCheckInterval.value)
         statusCheckInterval.value = null
       }
-      // Stop the timer when charge is completed
-      if (data.status === 'completed' && timerInterval.value) {
+      // Stop the timer when charge is completed or cancelled
+      if (timerInterval.value) {
         clearInterval(timerInterval.value)
         timerInterval.value = null
       }
@@ -141,6 +143,11 @@ const cancelCharge = async (id: string) => {
 
     const data = await response.json()
     console.log('Charge cancelled successfully:', data)
+    // Stop the timer when charge is cancelled
+    if (timerInterval.value) {
+      clearInterval(timerInterval.value)
+      timerInterval.value = null
+    }
     alert('ยกเลิกการชำระเงินเรียบร้อยแล้ว\nกรุณาปิดแท็บนี้')
     // Show a message in the UI
     errorMessage.value = 'การชำระเงินถูกยกเลิกเรียบร้อยแล้ว กรุณาปิดแท็บนี้'
@@ -193,6 +200,7 @@ const createCharge = async () => {
     const data = await response.json()
     chargeId.value = data.id
     chargeStatus.value = data.status
+    chargeDescription.value = data.description
     console.log('Charge created successfully:', data)
     // Start checking status
     startStatusCheck(data.id)
@@ -472,6 +480,7 @@ const handleCancel = () => {
             </svg>
           </div>
           <p class="text-gray-600 text-xs md:text-sm">การชำระเงินถูกยกเลิก</p>
+          <p v-if="chargeDescription" class="text-gray-500 text-xs md:text-sm mt-2">{{ chargeDescription }}</p>
         </div>
       </div>
 
