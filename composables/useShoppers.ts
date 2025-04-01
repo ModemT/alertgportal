@@ -22,6 +22,14 @@ interface CreateShopperData {
   account: string
 }
 
+interface UpdateShopperData {
+  name?: string
+  thai_name?: string
+  email?: string
+  phone?: string
+  is_active?: boolean
+}
+
 export function useShoppers() {
   const api = useApi()
   const shoppers = ref<Shopper[]>([])
@@ -54,11 +62,25 @@ export function useShoppers() {
     }
   }
 
+  const updateShopper = async (shopperId: string, data: UpdateShopperData) => {
+    try {
+      loading.value = true
+      error.value = null
+      return await api.patch(`/shoppers/${shopperId}`, data)
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An error occurred'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     shoppers,
     loading,
     error,
     fetchShoppers,
-    createShopper
+    createShopper,
+    updateShopper
   }
 } 

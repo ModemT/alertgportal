@@ -114,7 +114,7 @@
               </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
                 <button @click="openShopperDetails(customer.id)" class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
-                <button class="text-primary-600 hover:text-primary-900">แก้ไข</button>
+                <button @click="openEditModal(customer)" class="text-primary-600 hover:text-primary-900">แก้ไข</button>
               </td>
             </tr>
           </tbody>
@@ -171,6 +171,15 @@
       :is-open="isCreateModalOpen"
       @close="closeCreateModal"
     />
+
+    <!-- Edit Customer Modal -->
+    <EditCustomerModal
+      :is-open="isEditModalOpen"
+      :shopper-id="selectedShopperId"
+      :shopper="selectedShopper"
+      @close="closeEditModal"
+      @updated="handleShopperUpdated"
+    />
   </div>
 </template>
 
@@ -179,6 +188,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
 import ShopperDetailsModal from '~/components/ShopperDetailsModal.vue'
 import CreateCustomerModal from '~/components/CreateCustomerModal.vue'
+import EditCustomerModal from '~/components/EditCustomerModal.vue'
 
 const { shoppers, loading, error, fetchShoppers } = useShoppers()
 
@@ -189,6 +199,8 @@ const totalPages = ref(0)
 const isModalOpen = ref(false)
 const selectedShopperId = ref('')
 const isCreateModalOpen = ref(false)
+const isEditModalOpen = ref(false)
+const selectedShopper = ref(null)
 const statusFilter = ref('')
 const timeFilter = ref('')
 const searchQuery = ref('')
@@ -404,6 +416,22 @@ const openCreateModal = () => {
 const closeCreateModal = () => {
   isCreateModalOpen.value = false
   fetchPage() // Refresh the list after creating a new customer
+}
+
+const openEditModal = (customer) => {
+  selectedShopper.value = customer
+  selectedShopperId.value = customer.id
+  isEditModalOpen.value = true
+}
+
+const closeEditModal = () => {
+  isEditModalOpen.value = false
+  selectedShopper.value = null
+  selectedShopperId.value = ''
+}
+
+const handleShopperUpdated = () => {
+  fetchShoppers()
 }
 
 onMounted(() => {
