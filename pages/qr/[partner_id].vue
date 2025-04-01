@@ -21,6 +21,7 @@ const errorMessage = ref<string | null>(null)
 const chargeId = ref<string | null>(null)
 const chargeStatus = ref<string>('pending')
 const chargeDescription = ref<string>('')
+const previousDescription = ref<string>('')
 const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
 const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
@@ -93,7 +94,49 @@ const checkChargeStatus = async (id: string) => {
 
     const data = await response.json()
     chargeStatus.value = data.status
+    // Check if description has changed in pending state
+    if (chargeStatus.value === 'pending' && data.description !== previousDescription.value && previousDescription.value !== '') {
+      // Show toast message
+      const toast = document.createElement('div')
+      toast.className = 'fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm z-50 border border-gray-200'
+      toast.innerHTML = `
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm font-medium text-gray-900">รายละเอียดการชำระเงินมีการเปลี่ยนแปลง</p>
+            <p class="mt-1 text-sm text-gray-500">${data.description}</p>
+          </div>
+          <div class="ml-4 flex-shrink-0 flex">
+            <button class="inline-flex text-gray-400 hover:text-gray-500">
+              <span class="sr-only">ปิด</span>
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      `
+      document.body.appendChild(toast)
+      
+      // Add click handler to close button
+      const closeButton = toast.querySelector('button')
+      if (closeButton) {
+        closeButton.addEventListener('click', () => {
+          toast.remove()
+        })
+      }
+      
+      // Auto remove after 5 seconds
+      setTimeout(() => {
+        toast.remove()
+      }, 5000)
+    }
     chargeDescription.value = data.description
+    previousDescription.value = data.description
 
     // If charge is completed or cancelled, stop checking
     if (data.status === 'completed' || data.status === 'cancelled') {
@@ -201,7 +244,6 @@ const createCharge = async () => {
     chargeId.value = data.id
     chargeStatus.value = data.status
     chargeDescription.value = data.description
-    console.log('Charge created successfully:', data)
     // Start checking status
     startStatusCheck(data.id)
   } catch (err) {
