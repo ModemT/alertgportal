@@ -361,7 +361,7 @@ const handleCancel = () => {
                   <span class="font-medium text-gray-800">{{ amount }} {{ currency }}</span>
                 </div>
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
-                  <span class="text-gray-600">Customer Account:</span>
+                  <span class="text-gray-600">เลขที่บัญชีลูกค้า:</span>
                   <span class="font-medium text-gray-800">{{ shopperAccount || 'รอดำเนินการ' }}</span>
                 </div>
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
