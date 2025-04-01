@@ -66,7 +66,8 @@ const handleSubmit = () => {
     return
   }
   
-  const url = `/qr/${partnerId.value}?amount=${amount.value}&currency=${currency.value}${selectedShopperId.value ? `&shopper_id=${selectedShopperId.value}` : ''}`
+  const selectedShopper = shoppers.value.find(shopper => shopper.id === selectedShopperId.value)
+  const url = `/qr/${partnerId.value}?amount=${amount.value}&currency=${currency.value}${selectedShopperId.value ? `&shopper_id=${selectedShopperId.value}` : ''}${selectedShopper?.account ? `&shopper_account=${selectedShopper.account}` : ''}`
   window.open(url, '_blank')
   formSubmitted.value = false
 }

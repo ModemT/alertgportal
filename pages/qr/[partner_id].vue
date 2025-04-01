@@ -13,7 +13,8 @@ const apiBase = config.public.apiBase as string
 const partnerId = route.params.partner_id as string
 const amount = Number(route.query.amount) || 10000 // Default to 10000 if not provided
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
-const shopperId = (route.query.shopper_id as string) || 'shp_1057e5d4-b6b2-4b53-ae63-93ca74e763ba' // Default shopper ID if not provided
+const shopperId = (route.query.shopper_id as string) || ''
+const shopperAccount = (route.query.shopper_account as string) || ''
 
 const isLoading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
@@ -23,6 +24,11 @@ const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
 const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
 const timerInterval = ref<number | null>(null)
+
+// Validate that either shopper_id or shopper_account is provided
+if (!shopperId && !shopperAccount) {
+  errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
+}
 
 const checkChargeStatus = async (id: string) => {
   try {
@@ -104,6 +110,24 @@ const createCharge = async () => {
     isLoading.value = true
     errorMessage.value = null
 
+    // If only shopper_account is provided, fetch the shopper_id first
+    let finalShopperId = shopperId
+    if (!shopperId && shopperAccount) {
+      const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount}`, {
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || ''
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+      }
+
+      const data = await response.json()
+      finalShopperId = data.id
+    }
+
     const response = await fetch(`${apiBase}/charges`, {
       method: 'POST',
       headers: {
@@ -116,7 +140,7 @@ const createCharge = async () => {
         currency: currency,
         description: 'QR Code Payment',
         charge_metadata: {},
-        shopper_id: shopperId
+        shopper_id: finalShopperId
       }),
     })
 

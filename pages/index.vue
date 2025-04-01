@@ -266,6 +266,17 @@ const fetchDashboardData = async () => {
       ? ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
       : 0;
 
+    // Filter charges by month for pending amount calculations
+    const currentMonthCharges = charges.filter(charge => {
+      const chargeDate = new Date(charge.created_at);
+      return chargeDate >= currentMonth;
+    });
+
+    const previousMonthCharges = charges.filter(charge => {
+      const chargeDate = new Date(charge.created_at);
+      return chargeDate >= previousMonth && chargeDate < currentMonth;
+    });
+
     // Calculate pending amount change
     const currentMonthPending = currentMonthCharges.reduce((sum, charge) => {
       if (charge.status === 'pending') {
