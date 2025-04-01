@@ -90,6 +90,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
+import type { UpdateShopperData } from '~/composables/useShoppers'
 
 const props = defineProps<{
   isOpen: boolean
@@ -110,7 +111,23 @@ const emit = defineEmits<{
 
 const { updateShopper, loading, error } = useShoppers()
 
-const form = ref({
+interface ShopperForm {
+  name: string
+  thai_name: string
+  email: string
+  phone: string
+  is_active: boolean
+}
+
+const form = ref<ShopperForm>({
+  name: '',
+  thai_name: '',
+  email: '',
+  phone: '',
+  is_active: true
+})
+
+const originalData = ref<ShopperForm>({
   name: '',
   thai_name: '',
   email: '',
@@ -121,14 +138,34 @@ const form = ref({
 onMounted(() => {
   if (props.shopper) {
     form.value = { ...props.shopper }
+    originalData.value = { ...props.shopper }
   }
 })
 
 const handleSubmit = async () => {
   try {
-    await updateShopper(props.shopperId, form.value)
-    emit('updated')
-    emit('close')
+    // Only include fields that have been changed
+    const updatedFields: UpdateShopperData = {}
+    Object.keys(form.value).forEach((key) => {
+      const typedKey = key as keyof ShopperForm
+      if (form.value[typedKey] !== originalData.value[typedKey]) {
+        // Handle each field type separately
+        if (typedKey === 'is_active') {
+          updatedFields[typedKey] = form.value[typedKey] as boolean
+        } else {
+          updatedFields[typedKey] = form.value[typedKey] as string
+        }
+      }
+    })
+
+    // Only make the API call if there are changes
+    if (Object.keys(updatedFields).length > 0) {
+      await updateShopper(props.shopperId, updatedFields)
+      emit('updated')
+      emit('close')
+    } else {
+      emit('close') // Close modal if no changes were made
+    }
   } catch (err) {
     console.error('Error updating shopper:', err)
   }

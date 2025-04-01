@@ -22,7 +22,7 @@ interface CreateShopperData {
   account: string
 }
 
-interface UpdateShopperData {
+export interface UpdateShopperData {
   name?: string
   thai_name?: string
   email?: string
