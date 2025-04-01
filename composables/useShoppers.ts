@@ -40,10 +40,17 @@ export function useShoppers() {
     try {
       loading.value = true
       error.value = null
-      const data = await api.get(`/shoppers?skip=${skip}&limit=${limit}`)
-      shoppers.value = data
+      const response = await api.get(`/shoppers?skip=${skip}&limit=${limit}`)
+      const data = response as Shopper[]
+      shoppers.value = Array.isArray(data) ? data : []
+      return {
+        data: shoppers.value,
+        total: shoppers.value.length // Since we're getting the full array, use its length
+      }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
+      shoppers.value = [] // Reset to empty array on error
+      throw err
     } finally {
       loading.value = false
     }

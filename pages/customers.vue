@@ -209,6 +209,10 @@ const endDate = ref('')
 const isExporting = ref(false)
 
 const filteredShoppers = computed(() => {
+  if (!Array.isArray(shoppers.value)) {
+    return []
+  }
+  
   let filtered = [...shoppers.value]
 
   // Filter by status
@@ -250,18 +254,14 @@ const filteredShoppers = computed(() => {
     )
   }
 
-  // Sort by created_at in descending order (newest first)
-  return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return filtered
 })
 
 const paginatedShoppers = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredShoppers.value.slice(start, end)
+  return filteredShoppers.value
 })
 
 const updatePagination = () => {
-  totalItems.value = filteredShoppers.value.length
   totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
   if (currentPage.value > totalPages.value) {
     currentPage.value = Math.max(1, totalPages.value)
@@ -271,7 +271,7 @@ const updatePagination = () => {
 // Watch filters to update pagination
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
-  updatePagination()
+  fetchPage()
 })
 
 // Watch for timeFilter changes to reset date range
@@ -340,11 +340,19 @@ const exportToCSV = () => {
 
 const fetchPage = async () => {
   const skip = (currentPage.value - 1) * itemsPerPage.value
-  await fetchShoppers(skip, itemsPerPage.value)
+  try {
+    const data = await fetchShoppers(skip, itemsPerPage.value)
+    if (data && typeof data === 'object' && 'total' in data) {
+      totalItems.value = data.total
+      updatePagination()
+    }
+  } catch (error) {
+    console.error('Error fetching shoppers:', error)
+  }
 }
 
 const nextPage = () => {
-  if ((currentPage.value * itemsPerPage.value) < totalItems.value) {
+  if (currentPage.value < totalPages.value) {
     currentPage.value++
     fetchPage()
   }

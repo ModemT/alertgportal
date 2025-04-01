@@ -109,7 +109,7 @@
         </div>
         <div class="flex items-center">
           <button 
-            @click="currentPage--" 
+            @click="prevPage" 
             :disabled="currentPage === 1"
             class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
             ก่อนหน้า
@@ -117,7 +117,7 @@
           <button 
             v-for="page in totalPages" 
             :key="page"
-            @click="currentPage = page"
+            @click="goToPage(page)"
             :class="[
               'px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium mr-2',
               currentPage === page 
@@ -127,7 +127,7 @@
             {{ page }}
           </button>
           <button 
-            @click="currentPage++" 
+            @click="nextPage" 
             :disabled="currentPage === totalPages"
             class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
             ถัดไป
@@ -223,7 +223,7 @@ const updatePagination = () => {
 }
 
 // Watch filters to update pagination
-watch([statusFilter, timeFilter, searchQuery], () => {
+watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
   updatePagination()
 })
@@ -233,6 +233,7 @@ const fetchCharges = async () => {
     loading.value = true
     const data = await api.get('/charges?skip=0&limit=100')
     charges.value = data
+    updatePagination()
   } catch (error) {
     console.error('Error fetching charges:', error)
     error.value = error instanceof Error ? error.message : 'Failed to fetch charges'
@@ -405,6 +406,22 @@ watch(timeFilter, (newValue) => {
     endDate.value = ''
   }
 })
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const goToPage = (page) => {
+  currentPage.value = page
+}
 
 onMounted(() => {
   fetchCharges()
