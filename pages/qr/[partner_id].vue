@@ -454,7 +454,7 @@ const handleSaveQRCode = () => {
 
     // Create a link element
     const link = document.createElement('a')
-    link.href = '/assets/image/qr  interfood_page-0001.jpg'
+    link.href = '/assets/image/qr_code.png'
     link.download = `qr_${partnerId}_${amount}_${currency}.jpg`
     document.body.appendChild(link)
     link.click()
@@ -502,7 +502,7 @@ const handleCancel = () => {
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
           <div class="aspect-square">
             <img
-              src="/assets/image/qr  interfood_page-0001.jpg"
+              src="/assets/image/qr_code.png"
               alt="QR Code ชำระเงิน"
               class="w-full h-full object-contain"
             />
@@ -612,7 +612,7 @@ const handleCancel = () => {
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
             <div class="aspect-square">
               <img
-                src="/assets/image/qr  interfood_page-0001.jpg"
+                src="/assets/image/qr_code.png"
                 alt="QR Code ชำระเงิน"
                 class="w-full h-full object-contain"
               />
