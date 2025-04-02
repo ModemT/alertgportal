@@ -231,15 +231,16 @@ const checkExistingPendingCharge = async () => {
     let data;
 
     // Try to get charges based on shopper_id or account
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     if (shopperId.value) {
-      response = await fetch(`${apiBase}/charges?shopper_id=${shopperId.value}&status=pending&limit=10`, {
+      response = await fetch(`${apiBase}/charges?shopper_id=${shopperId.value}&status=pending&limit=10&created_after=${tenMinutesAgo}`, {
         headers: {
           'accept': 'application/json',
           'x-partner-id': partnerId,
         },
       });
     } else if (shopperAccount.value) {
-      response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}/charges?status=pending&limit=10`, {
+      response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}/charges?status=pending&limit=10&created_after=${tenMinutesAgo}`, {
         headers: {
           'accept': 'application/json',
           'x-partner-id': partnerId,
