@@ -17,14 +17,23 @@
       <div v-else>
         <!-- Shopper Information -->
         <div class="mb-6">
-          <div class="flex items-center mb-4">
-            <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-lg">
-              {{ getInitials(shopper?.name || '') }}
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+              <div class="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-lg">
+                {{ getInitials(shopper?.name || '') }}
+              </div>
+              <div class="ml-4">
+                <h4 class="text-lg font-medium text-gray-900">{{ shopper?.name }}</h4>
+                <p class="text-sm text-gray-500">{{ shopper?.thai_name }}</p>
+                <p class="text-sm text-gray-500">รหัส: {{ shopper?.id }}</p>
+              </div>
             </div>
-            <div class="ml-4">
-              <h4 class="text-lg font-medium text-gray-900">{{ shopper?.name }}</h4>
-              <p class="text-sm text-gray-500">รหัส: {{ shopper?.id }}</p>
-            </div>
+            <button
+              @click="openWithdrawalModal()"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              ถอนเงิน
+            </button>
           </div>
           
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -74,7 +83,7 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span :class="getStatusClass(charge.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                      {{ charge.status }}
+                      {{ getStatusText(charge.status) }}
                     </span>
                   </td>
                 </tr>
@@ -99,11 +108,21 @@
       </div>
     </template>
   </Modal>
+
+  <!-- Refund Modal -->
+  <RefundModal
+    :is-open="isRefundModalOpen"
+    :shopper-id="props.shopperId"
+    :charge="selectedCharge"
+    @close="closeRefundModal"
+    @refunded="handleRefunded"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import Modal from './Modal.vue'
+import RefundModal from './RefundModal.vue'
 import { useShopperDetails } from '~/composables/useShopperDetails'
 import { useShopperCharges } from '~/composables/useShopperCharges'
 
@@ -122,9 +141,32 @@ const { charges, loading: chargesLoading, error: chargesError, hasMore, nextCurs
 const loading = computed(() => shopperLoading.value || chargesLoading.value)
 const error = computed(() => shopperError.value || chargesError.value)
 
+const isRefundModalOpen = ref(false)
+const selectedCharge = ref<any>(null)
+
 const handleClose = () => {
   emit('close')
   reset()
+}
+
+const openWithdrawalModal = () => {
+  selectedCharge.value = {
+    id: null,
+    amount: 0,
+    currency: 'THB',
+    description: '',
+    status: 'pending'
+  }
+  isRefundModalOpen.value = true
+}
+
+const closeRefundModal = () => {
+  isRefundModalOpen.value = false
+  selectedCharge.value = null
+}
+
+const handleRefunded = async () => {
+  await loadCharges(props.shopperId)
 }
 
 const loadMore = async () => {
@@ -174,6 +216,28 @@ const getStatusClass = (status: string): string => {
     default:
       return 'bg-gray-100 text-gray-800'
   }
+}
+
+const getStatusText = (status: string): string => {
+  switch (status) {
+    case 'completed':
+      return 'สำเร็จ'
+    case 'pending':
+      return 'รอดำเนินการ'
+    case 'failed':
+      return 'ล้มเหลว'
+    case 'cancelled':
+      return 'ยกเลิก'
+    case 'refunded':
+      return 'คืนเงิน'
+    default:
+      return status
+  }
+}
+
+const openRefundModal = (charge: any) => {
+  selectedCharge.value = charge
+  isRefundModalOpen.value = true
 }
 
 watch(() => props.isOpen, async (newValue) => {

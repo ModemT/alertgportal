@@ -17,6 +17,7 @@ interface Shopper {
   id: string
   partner_id: string
   name: string
+  thai_name: string
   email: string
   phone: string
   account: string
