@@ -79,7 +79,7 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ charge.id }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ charge.description }}</td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ฿{{ formatCurrency(charge.amount) }}
+                    {{ formatCurrency(charge.amount) }}
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span :class="getStatusClass(charge.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
@@ -195,7 +195,7 @@ const formatDate = (dateString: string): string => {
 }
 
 const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('th-TH', {
+  return '฿' + new Intl.NumberFormat('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(value)
