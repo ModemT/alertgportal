@@ -199,11 +199,13 @@ export const useDashboard = () => {
 
       // Get recent transactions with shopper details
       const recentCharges = charges
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5)
+        ? charges
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5)
+        : []
 
       // Create a map of shopper IDs to shopper details for faster lookup
-      const shopperMap = new Map(shoppers.map(shopper => [shopper.id, shopper]))
+      const shopperMap = new Map(shoppers?.map(shopper => [shopper.id, shopper]) || [])
 
       // Map recent transactions with shopper details
       recentTransactions.value = recentCharges.map(charge => {
@@ -213,8 +215,8 @@ export const useDashboard = () => {
             name: shopper?.name || charge.shopper_id,
             email: shopper?.email || '',
             initials: shopper?.name
-              ? shopper.name.split(' ').map(n => n[0]).join('').toUpperCase()
-              : charge.shopper_id.slice(0, 2).toUpperCase()
+              ? shopper.name.split(' ').map(n => n?.[0] || '').join('').toUpperCase()
+              : (charge.shopper_id?.slice(0, 2) || '').toUpperCase()
           },
           date: new Date(charge.created_at).toLocaleDateString('th-TH'),
           amount: Number(charge.amount).toFixed(2),
