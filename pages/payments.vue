@@ -105,33 +105,19 @@
       <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
         <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง {{ (currentPage - 1) * itemsPerPage + 1 }} ถึง {{ Math.min(currentPage * itemsPerPage, totalItems) }} จาก {{ totalItems }} รายการ
+          แสดง {{ charges.length }} รายการ
         </div>
         <div class="flex items-center">
           <button 
-            @click="prevPage" 
-            :disabled="currentPage === 1"
-            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
-            ก่อนหน้า
+            v-if="hasMore"
+            @click="loadMore"
+            :disabled="loading"
+            :class="{'opacity-50 cursor-not-allowed': loading}"
+            class="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            {{ loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม' }}
           </button>
-          <button 
-            v-for="page in totalPages" 
-            :key="page"
-            @click="goToPage(page)"
-            :class="[
-              'px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium mr-2',
-              currentPage === page 
-                ? 'text-white bg-primary-500 hover:bg-primary-600' 
-                : 'text-gray-700 bg-white hover:bg-gray-50'
-            ]">
-            {{ page }}
-          </button>
-          <button 
-            @click="nextPage" 
-            :disabled="currentPage === totalPages"
-            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-            ถัดไป
-          </button>
+          <span v-else class="text-sm text-gray-500">ไม่มีข้อมูลเพิ่มเติม</span>
         </div>
       </div>
     </div>
@@ -145,28 +131,27 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, watch } from 'vue'
-import { useApi } from '../composables/useApi'
+<script setup lang="ts">
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
 
-const api = useApi()
+const { charges, loading, error, fetchCharges } = useCharges()
 
-const charges = ref([])
-const statusFilter = ref('')
-const timeFilter = ref('7')
-const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 const totalItems = ref(0)
-const totalPages = ref(1)
-const loading = ref(false)
-const error = ref(null)
+const totalPages = ref(0)
 const isModalOpen = ref(false)
 const selectedChargeId = ref('')
+const statusFilter = ref('')
+const timeFilter = ref('')
+const searchQuery = ref('')
 const startDate = ref('')
 const endDate = ref('')
 const isExporting = ref(false)
+const nextCursor = ref<string | null>(null)
+const hasMore = ref(true)
 
 const filteredCharges = computed(() => {
   let filtered = [...charges.value]
@@ -184,13 +169,13 @@ const filteredCharges = computed(() => {
     
     filtered = filtered.filter(charge => {
       const chargeDate = new Date(charge.created_at)
-      return chargeDate >= start && chargeDate <= end
+      return chargeDate.getTime() >= start.getTime() && chargeDate.getTime() <= end.getTime()
     })
   } else if (timeFilter.value && timeFilter.value !== 'custom') {
     const days = parseInt(timeFilter.value)
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - days)
-    filtered = filtered.filter(charge => new Date(charge.created_at) >= cutoffDate)
+    filtered = filtered.filter(charge => new Date(charge.created_at).getTime() >= cutoffDate.getTime())
   }
 
   // Filter by search query
@@ -205,17 +190,14 @@ const filteredCharges = computed(() => {
   }
 
   // Sort by created_at in descending order (newest first)
-  return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 })
 
 const paginatedCharges = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredCharges.value.slice(start, end)
+  return filteredCharges.value
 })
 
 const updatePagination = () => {
-  totalItems.value = filteredCharges.value.length
   totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
   if (currentPage.value > totalPages.value) {
     currentPage.value = Math.max(1, totalPages.value)
@@ -225,31 +207,82 @@ const updatePagination = () => {
 // Watch filters to update pagination
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
-  updatePagination()
+  nextCursor.value = null // Reset cursor when filters change
+  fetchPage()
 })
 
-const fetchCharges = async () => {
+// Watch for timeFilter changes to reset date range
+watch(timeFilter, (newValue) => {
+  if (newValue !== 'custom') {
+    startDate.value = ''
+    endDate.value = ''
+  }
+})
+
+const fetchPage = async (): Promise<void> => {
   try {
     loading.value = true
-    const data = await api.get('/charges?skip=0&limit=100')
-    charges.value = data
+    const result = await fetchCharges(nextCursor.value || undefined, itemsPerPage.value)
+    if (nextCursor.value === null) {
+      // First page
+      charges.value = result.data
+    } else {
+      // Append to existing data
+      charges.value = [...charges.value, ...result.data]
+    }
+    nextCursor.value = result.nextCursor
+    hasMore.value = result.hasMore
+    totalItems.value = charges.value.length
     updatePagination()
-  } catch (error) {
-    console.error('Error fetching charges:', error)
-    error.value = error instanceof Error ? error.message : 'Failed to fetch charges'
+  } catch (err) {
+    console.error('Error fetching charges:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
   } finally {
     loading.value = false
   }
 }
 
-const formatAmount = (amount) => {
+const loadMore = async () => {
+  if (!hasMore.value || loading.value) return
+  await fetchPage()
+}
+
+// Load more when scrolling to bottom
+const handleScroll = () => {
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
+    loadMore()
+  }
+}
+
+onMounted(async () => {
+  try {
+    loading.value = true
+    const result = await fetchCharges(undefined, itemsPerPage.value)
+    charges.value = result.data
+    nextCursor.value = result.nextCursor
+    hasMore.value = result.hasMore
+    totalItems.value = charges.value.length
+    updatePagination()
+  } catch (err) {
+    console.error('Error fetching initial charges:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
+  } finally {
+    loading.value = false
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
+})
+
+const formatAmount = (amount: number): string => {
   return new Intl.NumberFormat('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount)
 }
 
-const formatDate = (dateString) => {
+const formatDate = (dateString: string): string => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return new Intl.DateTimeFormat('th-TH', {
@@ -261,7 +294,7 @@ const formatDate = (dateString) => {
   }).format(date)
 }
 
-const getStatusClass = (status) => {
+const getStatusClass = (status: string): string => {
   switch (status) {
     case 'completed':
       return 'bg-green-100 text-green-800'
@@ -280,7 +313,7 @@ const getStatusClass = (status) => {
   }
 }
 
-const getStatusText = (status) => {
+const getStatusText = (status: string): string => {
   switch (status) {
     case 'completed':
       return 'สำเร็จ'
@@ -299,12 +332,12 @@ const getStatusText = (status) => {
   }
 }
 
-const openChargeDetails = (chargeId) => {
+const openChargeDetails = (chargeId: string): void => {
   selectedChargeId.value = chargeId
   isModalOpen.value = true
 }
 
-const closeChargeDetails = () => {
+const closeChargeDetails = (): void => {
   isModalOpen.value = false
   selectedChargeId.value = ''
 }
@@ -324,13 +357,13 @@ const exportToCSV = () => {
       
       filteredData = filteredData.filter(charge => {
         const chargeDate = new Date(charge.created_at)
-        return chargeDate >= start && chargeDate <= end
+        return chargeDate.getTime() >= start.getTime() && chargeDate.getTime() <= end.getTime()
       })
     } else if (timeFilter.value && timeFilter.value !== 'custom') {
       const days = parseInt(timeFilter.value)
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - days)
-      filteredData = filteredData.filter(charge => new Date(charge.created_at) >= cutoffDate)
+      filteredData = filteredData.filter(charge => new Date(charge.created_at).getTime() >= cutoffDate.getTime())
     }
 
     // Apply status filter
@@ -350,7 +383,7 @@ const exportToCSV = () => {
     }
 
     // Sort by created_at in descending order
-    filteredData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    filteredData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     // Prepare CSV data
     const headers = [
@@ -399,31 +432,19 @@ const exportToCSV = () => {
   }
 }
 
-// Watch for timeFilter changes to reset date range
-watch(timeFilter, (newValue) => {
-  if (newValue !== 'custom') {
-    startDate.value = ''
-    endDate.value = ''
-  }
-})
-
-const nextPage = () => {
+const nextPage = (): void => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++
   }
 }
 
-const prevPage = () => {
+const prevPage = (): void => {
   if (currentPage.value > 1) {
     currentPage.value--
   }
 }
 
-const goToPage = (page) => {
+const goToPage = (page: number): void => {
   currentPage.value = page
 }
-
-onMounted(() => {
-  fetchCharges()
-})
 </script> 

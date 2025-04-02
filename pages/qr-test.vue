@@ -73,10 +73,16 @@ const handleSubmit = () => {
 }
 
 onMounted(async () => {
-  await Promise.all([
-    fetchUserProfile(),
-    fetchShoppers(0, 100) // Fetch up to 100 shoppers for the dropdown
-  ])
+  try {
+    await fetchUserProfile()
+    const { data, hasMore } = await fetchShoppers(undefined, 100) // Fetch up to 100 shoppers for the dropdown
+    if (data.length === 0) {
+      console.warn('No shoppers found')
+    }
+  } catch (error) {
+    console.error('Error initializing page:', error)
+  }
+  
   document.addEventListener('click', handleClickOutside)
   document.addEventListener('keydown', handleEscape)
 })

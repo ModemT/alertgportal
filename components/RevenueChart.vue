@@ -1,131 +1,119 @@
 <template>
-  <div class="chart-container">
+  <div class="chart-container h-60">
     <canvas ref="chartRef"></canvas>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
-import Chart from 'chart.js/auto';
-import { useApi } from '~/composables/useApi';
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import Chart from 'chart.js/auto'
+import { useCharges } from '~/composables/useCharges'
+import type { Charge } from '~/composables/useCharges'
 
-const chartRef = ref(null);
-let chart = null;
-const api = useApi();
+interface MonthlyData {
+  month: string
+  revenue: number
+  expenses: number
+}
+
+const chartRef = ref<HTMLCanvasElement | null>(null)
+let chart: Chart | null = null
+const { fetchCharges } = useCharges()
 
 // Function to determine if we're on mobile
-const isMobile = () => window.innerWidth < 768;
+const isMobile = () => window.innerWidth < 768
 
 // Function to get month name in Thai
-const getThaiMonth = (date) => {
-  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  return months[date.getMonth()];
-};
-
-// Function to fetch all charges with pagination
-const fetchAllCharges = async () => {
-  const allCharges = [];
-  let skip = 0;
-  const limit = 100;
-  let hasMore = true;
-
-  while (hasMore) {
-    try {
-      const charges = await api.get(`/charges?skip=${skip}&limit=${limit}`);
-      if (!charges || charges.length === 0) {
-        hasMore = false;
-        break;
-      }
-      allCharges.push(...charges);
-      if (charges.length < limit) {
-        hasMore = false;
-      } else {
-        skip += limit;
-      }
-    } catch (error) {
-      console.error('Error fetching charges:', error);
-      hasMore = false;
-    }
-  }
-
-  return allCharges;
-};
+const getThaiMonth = (date: Date) => {
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  return months[date.getMonth()]
+}
 
 // Create or update chart
 const createChart = async () => {
+  if (!chartRef.value) return
   if (chart) {
-    chart.destroy();
+    chart.destroy()
   }
   
-  const ctx = chartRef.value.getContext('2d');
+  const ctx = chartRef.value.getContext('2d')
+  if (!ctx) return
   
   try {
-    // Fetch all charges with pagination
-    const charges = await fetchAllCharges();
+    // Fetch all charges with cursor-based pagination
+    const allCharges: Charge[] = []
+    let cursor: string | undefined = undefined
+    let hasMore = true
+    
+    while (hasMore) {
+      const result = await fetchCharges(cursor, 100)
+      allCharges.push(...result.data)
+      cursor = result.nextCursor || undefined
+      hasMore = result.hasMore
+    }
     
     // Process data for the last 12 months
-    const now = new Date();
-    const monthlyData = Array(12).fill(0).map((_, index) => {
-      const month = new Date(now.getFullYear(), now.getMonth() - index, 1);
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() - index + 1, 1);
+    const now = new Date()
+    const monthlyData: MonthlyData[] = Array(12).fill(0).map((_, index) => {
+      const month = new Date(now.getFullYear(), now.getMonth() - index, 1)
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() - index + 1, 1)
       
-      const monthCharges = charges.filter(charge => {
+      const monthCharges = allCharges.filter(charge => {
         try {
-          const chargeDate = new Date(charge.created_at);
+          const chargeDate = new Date(charge.created_at)
           if (isNaN(chargeDate.getTime())) {
-            console.error('Invalid date for charge:', charge);
-            return false;
+            console.error('Invalid date for charge:', charge)
+            return false
           }
-          return chargeDate >= month && chargeDate < nextMonth;
+          return chargeDate >= month && chargeDate < nextMonth
         } catch (error) {
-          console.error('Error processing charge date:', error, charge);
-          return false;
+          console.error('Error processing charge date:', error, charge)
+          return false
         }
-      });
+      })
 
-      
       const revenue = monthCharges.reduce((sum, charge) => {
         try {
           // Only count completed charges as revenue
           if (charge.status === 'completed') {
-            const amount = Number(charge.amount);
+            const amount = Number(charge.amount)
             if (isNaN(amount)) {
-              console.error('Invalid amount for charge:', charge);
-              return sum;
+              console.error('Invalid amount for charge:', charge)
+              return sum
             }
-            return sum + amount;
+            return sum + amount
           }
-          return sum;
+          return sum
         } catch (error) {
-          console.error('Error processing revenue:', error, charge);
-          return sum;
+          console.error('Error processing revenue:', error, charge)
+          return sum
         }
-      }, 0);
+      }, 0)
       
       const expenses = monthCharges.reduce((sum, charge) => {
         try {
           // Only count refunded charges as expenses, not cancelled ones
           if (charge.status === 'refunded') {
-            const amount = Number(charge.amount);
+            const amount = Number(charge.amount)
             if (isNaN(amount)) {
-              console.error('Invalid amount for charge:', charge);
-              return sum;
+              console.error('Invalid amount for charge:', charge)
+              return sum
             }
-            return sum + amount;
+            return sum + amount
           }
-          return sum;
+          return sum
         } catch (error) {
-          console.error('Error processing expenses:', error, charge);
-          return sum;
+          console.error('Error processing expenses:', error, charge)
+          return sum
         }
-      }, 0);
+      }, 0)
 
       return {
         month: getThaiMonth(month),
         revenue,
         expenses
-      };
-    }).reverse();
+      }
+    }).reverse()
     
     const data = {
       labels: monthlyData.map(d => d.month),
@@ -149,9 +137,9 @@ const createChart = async () => {
           fill: true
         }
       ]
-    };
+    }
     
-    const mobile = isMobile();
+    const mobile = isMobile()
     
     // Chart configuration
     chart = new Chart(ctx, {
@@ -174,9 +162,9 @@ const createChart = async () => {
           tooltip: {
             callbacks: {
               label: function(context) {
-                const label = context.dataset.label || '';
-                const value = context.raw || 0;
-                return `${label}: ฿${value.toFixed(2)}`;
+                const label = context.dataset.label || ''
+                const value = context.raw as number || 0
+                return `${label}: ฿${value.toFixed(2)}`
               }
             }
           }
@@ -186,40 +174,40 @@ const createChart = async () => {
             beginAtZero: true,
             ticks: {
               callback: function(value) {
-                return '฿' + value.toLocaleString();
+                return '฿' + value.toLocaleString()
               }
             }
           }
         }
       }
-    });
+    })
   } catch (error) {
-    console.error('Error fetching revenue data:', error);
+    console.error('Error fetching revenue data:', error)
   }
-};
+}
 
 // Handle window resize
 const handleResize = () => {
-  createChart();
-};
+  createChart()
+}
 
 onMounted(() => {
-  createChart();
-  window.addEventListener('resize', handleResize);
-});
+  createChart()
+  window.addEventListener('resize', handleResize)
+})
 
 onUnmounted(() => {
   if (chart) {
-    chart.destroy();
+    chart.destroy()
   }
-  window.removeEventListener('resize', handleResize);
-});
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style scoped>
 .chart-container {
   position: relative;
   width: 100%;
-  height: 100%;
+  min-height: 300px;
 }
 </style> 

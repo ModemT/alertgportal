@@ -1,25 +1,16 @@
 import { ref } from 'vue'
-import { useApi } from './useApi'
+import { useRuntimeConfig } from '#app'
 
-interface Shopper {
+export interface Shopper {
   id: string
+  account: string
   name: string
-  thai_name: string
   email: string
   phone: string
-  account: string
-  partner_id: string
+  status: string
   created_at: string
-  updated_at: string | null
-  total_completed_charges: Record<string, number>
-}
-
-interface CreateShopperData {
-  name: string
-  thai_name: string
-  email: string
-  phone: string
-  account: string
+  updated_at: string
+  total_completed_charges?: Record<string, number>
 }
 
 export interface UpdateShopperData {
@@ -30,26 +21,94 @@ export interface UpdateShopperData {
   is_active?: boolean
 }
 
-export function useShoppers() {
-  const api = useApi()
+interface CreateShopperData {
+  name: string
+  email: string
+  phone: string
+  account: string
+}
+
+export const useShoppers = () => {
+  const config = useRuntimeConfig()
+  const apiBase = config.public.apiBase as string
   const shoppers = ref<Shopper[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  const fetchShoppers = async (skip: number = 0, limit: number = 10) => {
+  const fetchShoppers = async (cursor?: string, limit: number = 10) => {
     try {
       loading.value = true
       error.value = null
-      const response = await api.get(`/shoppers?skip=${skip}&limit=${limit}`)
-      const data = response as Shopper[]
-      shoppers.value = Array.isArray(data) ? data : []
-      return {
-        data: shoppers.value,
-        total: shoppers.value.length // Since we're getting the full array, use its length
+      const formattedCursor = cursor ? new Date(cursor).toISOString() : undefined
+      const response = await fetch(`${apiBase}/shoppers?limit=${limit}${formattedCursor ? `&cursor=${formattedCursor}` : ''}`, {
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch shoppers')
       }
+
+      const data = await response.json()
+      shoppers.value = data.shoppers || []
+      
+      return {
+        data: data.shoppers || [],
+        nextCursor: data.next_cursor || null,
+        hasMore: data.has_more || false
+      }
+    } catch (error) {
+      console.error('Error fetching shoppers:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const getShopper = async (shopperId: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await fetch(`${apiBase}/shoppers/${shopperId}`, {
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch shopper details')
+      }
+
+      return await response.json()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
-      shoppers.value = [] // Reset to empty array on error
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const getShopperByAccount = async (account: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await fetch(`${apiBase}/shoppers/account/${account}`, {
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch shopper details')
+      }
+
+      return await response.json()
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An error occurred'
       throw err
     } finally {
       loading.value = false
@@ -60,7 +119,21 @@ export function useShoppers() {
     try {
       loading.value = true
       error.value = null
-      return await api.post('/shoppers', data)
+      const response = await fetch(`${apiBase}/shoppers`, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create shopper')
+      }
+
+      return await response.json()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
       throw err
@@ -73,7 +146,21 @@ export function useShoppers() {
     try {
       loading.value = true
       error.value = null
-      return await api.patch(`/shoppers/${shopperId}`, data)
+      const response = await fetch(`${apiBase}/shoppers/${shopperId}`, {
+        method: 'PATCH',
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update shopper')
+      }
+
+      return await response.json()
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
       throw err
@@ -87,6 +174,8 @@ export function useShoppers() {
     loading,
     error,
     fetchShoppers,
+    getShopper,
+    getShopperByAccount,
     createShopper,
     updateShopper
   }

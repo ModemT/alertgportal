@@ -3,6 +3,15 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRuntimeConfig } from '#app'
 
+// Add interface at the top of the file after imports
+interface Charge {
+  id: string
+  status: string
+  amount: number
+  currency: string
+  description: string
+}
+
 definePageMeta({
   layout: 'qr'
 })
@@ -13,7 +22,7 @@ const apiBase = config.public.apiBase as string
 const partnerId = route.params.partner_id as string
 const amount = Number(route.query.amount) || 10000 // Default to 10000 if not provided
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
-const shopperAccount = ref<string>('')
+const shopperAccount = ref<string>((route.query.shopper_account as string) || '')
 const shopperId = ref<string>((route.query.shopper_id as string) || '')
 
 const isLoading = ref<boolean>(false)
@@ -28,18 +37,19 @@ const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
 const timerInterval = ref<number | null>(null)
 
 // Validate that either shopper_id or shopper_account is provided
-if (!shopperId.value && !shopperAccount) {
+if (!shopperId.value && !shopperAccount.value) {
   errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
 }
 
 // Fetch shopper details if account is provided
 const fetchShopperByAccount = async () => {
-  if (!shopperAccount) return
+  if (!shopperAccount.value) return
 
   try {
-    const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount}`, {
+    const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}`, {
       headers: {
         'accept': 'application/json',
+        'x-partner-id': partnerId,
         'access-token': localStorage.getItem('token') || ''
       }
     })
@@ -49,11 +59,17 @@ const fetchShopperByAccount = async () => {
     }
 
     const data = await response.json()
-    shopperId.value = data.id
-    shopperAccount.value = data.account
+    if (data.shoppers && data.shoppers.length > 0) {
+      const shopper = data.shoppers[0]
+      shopperId.value = shopper.id
+      shopperAccount.value = shopper.account
+    } else {
+      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+    }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
+    throw err
   }
 }
 
@@ -63,6 +79,7 @@ const fetchShopperById = async (id: string) => {
     const response = await fetch(`${apiBase}/shoppers/${id}`, {
       headers: {
         'accept': 'application/json',
+        'x-partner-id': partnerId,
         'access-token': localStorage.getItem('token') || ''
       }
     })
@@ -72,10 +89,16 @@ const fetchShopperById = async (id: string) => {
     }
 
     const data = await response.json()
-    shopperAccount.value = data.account
+    if (data.shoppers && data.shoppers.length > 0) {
+      const shopper = data.shoppers[0]
+      shopperAccount.value = shopper.account
+    } else {
+      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+    }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
+    throw err
   }
 }
 
@@ -202,21 +225,90 @@ const cancelCharge = async (id: string) => {
   }
 }
 
+const checkExistingPendingCharge = async () => {
+  try {
+    let response;
+    let data;
+
+    // Try to get charges based on shopper_id or account
+    if (shopperId.value) {
+      response = await fetch(`${apiBase}/charges?shopper_id=${shopperId.value}&status=pending&limit=10`, {
+        headers: {
+          'accept': 'application/json',
+          'x-partner-id': partnerId,
+        },
+      });
+    } else if (shopperAccount.value) {
+      response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}/charges?status=pending&limit=10`, {
+        headers: {
+          'accept': 'application/json',
+          'x-partner-id': partnerId,
+        },
+      });
+    } else {
+      return false;
+    }
+
+    if (!response.ok) {
+      throw new Error('ไม่สามารถตรวจสอบการชำระเงินที่รอดำเนินการได้')
+    }
+
+    data = await response.json()
+    console.log('data: ', data);
+    
+    if (data.charges && data.charges.length > 0) {
+      // Find any pending charge with matching amount and currency
+      const matchingCharge = data.charges.find((charge: Charge) => {
+        const matches = charge.status === 'pending' && 
+          Number(charge.amount) === Number(amount) && 
+          charge.currency === currency;
+        console.log('Checking charge:', {
+          id: charge.id,
+          status: charge.status,
+          amount: Number(charge.amount),
+          targetAmount: Number(amount),
+          currency: charge.currency,
+          matches
+        });
+        return matches;
+      });
+      console.log('matchingCharge: ', matchingCharge);
+
+      if (matchingCharge) {
+        chargeId.value = matchingCharge.id
+        chargeStatus.value = matchingCharge.status
+        chargeDescription.value = matchingCharge.description
+        previousDescription.value = matchingCharge.description
+        startStatusCheck(matchingCharge.id)
+        return true
+      }
+    }
+    return false
+  } catch (err) {
+    console.error('Error checking existing charge:', err)
+    return false
+  }
+}
+
 const createCharge = async () => {
   try {
     isLoading.value = true
     errorMessage.value = null
 
     // If only shopper_account is provided, make sure we have fetched the shopper_id
-    if (!shopperId.value && shopperAccount) {
+    if (!shopperId.value && shopperAccount.value) {
       await fetchShopperByAccount()
-    } else if (shopperId.value) {
-      // If we have shopper ID, fetch the account number
-      await fetchShopperById(shopperId.value)
     }
 
     if (!shopperId.value) {
       throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+    }
+
+    // Check for existing pending charge first
+    const hasExistingCharge = await checkExistingPendingCharge()
+    if (hasExistingCharge) {
+      isLoading.value = false
+      return
     }
 
     const response = await fetch(`${apiBase}/charges`, {
@@ -244,6 +336,7 @@ const createCharge = async () => {
     chargeId.value = data.id
     chargeStatus.value = data.status
     chargeDescription.value = data.description
+    previousDescription.value = data.description
     // Start checking status
     startStatusCheck(data.id)
   } catch (err) {
@@ -297,25 +390,49 @@ const formatTime = (seconds: number) => {
 
 // Create charge and handle QR page setup when mounted
 onMounted(async () => {
-  if (route.path.startsWith('/qr/')) {
-    // Clear any stored redirect URL
-    localStorage.removeItem('redirect')
+  try {
+    // First check for existing pending charge
+    const hasExistingCharge = await checkExistingPendingCharge()
+    console.log('hasExistingCharge: ', hasExistingCharge);
     
-    // If we have a shopper account, fetch the shopper details first
-    if (shopperAccount) {
-      await fetchShopperByAccount()
-    } else if (shopperId.value) {
-      // If we have shopper ID, fetch the account number
-      await fetchShopperById(shopperId.value)
+    // Only proceed with charge creation if we don't have an existing charge
+    if (!hasExistingCharge) {
+      // If we have a shopper account but no ID, try to fetch the shopper details
+      if (shopperAccount.value && !shopperId.value) {
+        try {
+          await fetchShopperByAccount()
+        } catch (err) {
+          // If shopper not found, show error and return early
+          errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบเลขบัญชีผู้ซื้อ'
+          return
+        }
+      }
+      
+      // Only proceed with charge creation if we have valid shopper details
+      if (shopperId.value) {
+        await createCharge()
+      }
     }
     
-    createCharge()
-    
-    // Add beforeunload event listener
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    
-    // Start the timer
-    startTimer()
+    // Start the timer if we have a valid charge (either existing or new)
+    if (chargeId.value) {
+      timerInterval.value = window.setInterval(() => {
+        if (timeLeft.value > 0) {
+          timeLeft.value--
+        } else {
+          if (timerInterval.value) {
+            clearInterval(timerInterval.value)
+            timerInterval.value = null
+          }
+          if (chargeId.value) {
+            cancelCharge(chargeId.value)
+          }
+        }
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Error in initialization:', error)
+    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มต้น กรุณาลองใหม่อีกครั้ง'
   }
 })
 

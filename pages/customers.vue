@@ -48,7 +48,20 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
-          <input v-model="searchQuery" type="text" placeholder="ค้นหาลูกค้า..." class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" />
+          <div class="relative">
+            <input
+              type="text"
+              v-model="searchQuery"
+              @input="handleSearchInput"
+              placeholder="ค้นหาลูกค้า..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+              <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
         <div class="flex items-end">
           <button 
@@ -124,37 +137,19 @@
       <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
         <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง {{ ((currentPage - 1) * itemsPerPage) + 1 }} ถึง {{ Math.min(currentPage * itemsPerPage, totalItems) }} จาก {{ totalItems }} รายการ
+          แสดง {{ shoppers.length }} รายการ
         </div>
         <div class="flex items-center">
           <button 
-            @click="prevPage"
-            :disabled="currentPage === 1"
-            :class="{'opacity-50 cursor-not-allowed': currentPage === 1}"
-            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2"
+            v-if="hasMore"
+            @click="loadMore"
+            :disabled="loading"
+            :class="{'opacity-50 cursor-not-allowed': loading}"
+            class="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
-            ก่อนหน้า
+            {{ loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม' }}
           </button>
-          <button 
-            v-for="page in Math.ceil(totalItems / itemsPerPage)" 
-            :key="page"
-            @click="goToPage(page)"
-            :class="{
-              'bg-primary-500 text-white hover:bg-primary-600': currentPage === page,
-              'text-gray-700 bg-white hover:bg-gray-50': currentPage !== page
-            }"
-            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium mr-2"
-          >
-            {{ page }}
-          </button>
-          <button 
-            @click="nextPage"
-            :disabled="currentPage >= Math.ceil(totalItems / itemsPerPage)"
-            :class="{'opacity-50 cursor-not-allowed': currentPage >= Math.ceil(totalItems / itemsPerPage)}"
-            class="px-2 sm:px-3 py-1 rounded-md border border-gray-300 text-xs sm:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            ถัดไป
-          </button>
+          <span v-else class="text-sm text-gray-500">ไม่มีข้อมูลเพิ่มเติม</span>
         </div>
       </div>
     </div>
@@ -183,12 +178,13 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
 import ShopperDetailsModal from '~/components/ShopperDetailsModal.vue'
 import CreateCustomerModal from '~/components/CreateCustomerModal.vue'
 import EditCustomerModal from '~/components/EditCustomerModal.vue'
+import type { Shopper } from '~/composables/useShoppers'
 
 const { shoppers, loading, error, fetchShoppers } = useShoppers()
 
@@ -200,13 +196,15 @@ const isModalOpen = ref(false)
 const selectedShopperId = ref('')
 const isCreateModalOpen = ref(false)
 const isEditModalOpen = ref(false)
-const selectedShopper = ref(null)
+const selectedShopper = ref<Shopper | null>(null)
 const statusFilter = ref('')
 const timeFilter = ref('')
 const searchQuery = ref('')
 const startDate = ref('')
 const endDate = ref('')
 const isExporting = ref(false)
+const nextCursor = ref<string | null>(null)
+const hasMore = ref(true)
 
 const filteredShoppers = computed(() => {
   if (!Array.isArray(shoppers.value)) {
@@ -247,7 +245,6 @@ const filteredShoppers = computed(() => {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(shopper => 
       shopper.name.toLowerCase().includes(query) ||
-      shopper.thai_name.toLowerCase().includes(query) ||
       shopper.email.toLowerCase().includes(query) ||
       shopper.phone.toLowerCase().includes(query) ||
       shopper.account.toLowerCase().includes(query)
@@ -271,6 +268,7 @@ const updatePagination = () => {
 // Watch filters to update pagination
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
+  nextCursor.value = null // Reset cursor when filters change
   fetchPage()
 })
 
@@ -338,16 +336,26 @@ const exportToCSV = () => {
   }
 }
 
-const fetchPage = async () => {
-  const skip = (currentPage.value - 1) * itemsPerPage.value
+const fetchPage = async (): Promise<void> => {
   try {
-    const data = await fetchShoppers(skip, itemsPerPage.value)
-    if (data && typeof data === 'object' && 'total' in data) {
-      totalItems.value = data.total
-      updatePagination()
+    loading.value = true
+    const result = await fetchShoppers(nextCursor.value || undefined, itemsPerPage.value)
+    if (nextCursor.value === null) {
+      // First page
+      shoppers.value = result.data
+    } else {
+      // Append to existing data
+      shoppers.value = [...shoppers.value, ...result.data]
     }
-  } catch (error) {
-    console.error('Error fetching shoppers:', error)
+    nextCursor.value = result.nextCursor
+    hasMore.value = result.hasMore
+    totalItems.value = shoppers.value.length
+    updatePagination()
+  } catch (err) {
+    console.error('Error fetching shoppers:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to fetch shoppers'
+  } finally {
+    loading.value = false
   }
 }
 
@@ -365,31 +373,32 @@ const prevPage = () => {
   }
 }
 
-const goToPage = (page) => {
+const goToPage = (page: number): void => {
   currentPage.value = page
-  fetchPage()
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return ''
+const formatDate = (dateString: string): string => {
+  if (!dateString) return '-'
   const date = new Date(dateString)
   return new Intl.DateTimeFormat('th-TH', {
+    year: 'numeric',
+    month: 'long',
     day: 'numeric',
-    month: 'short',
-    year: 'numeric'
+    hour: '2-digit',
+    minute: '2-digit'
   }).format(date)
 }
 
-const getInitials = (name) => {
+const getInitials = (name: string): string => {
   if (!name) return ''
   return name.split(' ')
-    .map(word => word[0])
+    .map((word: string) => word[0])
     .join('')
     .slice(0, 2)
     .toUpperCase()
 }
 
-const getStatusClass = (status) => {
+const getStatusClass = (status: string): string => {
   switch (status) {
     case 'active':
       return 'bg-green-100 text-green-800'
@@ -400,19 +409,51 @@ const getStatusClass = (status) => {
   }
 }
 
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('th-TH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(parseFloat(value))
+const getStatusText = (status: string): string => {
+  switch (status) {
+    case 'active':
+      return 'ใช้งาน'
+    case 'inactive':
+      return 'ไม่ใช้งาน'
+    default:
+      return status
+  }
 }
 
-const openShopperDetails = (shopperId) => {
+const formatCurrency = (value: number | string): string => {
+  const numValue = typeof value === 'string' ? parseFloat(value) : value
+  return new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numValue)
+}
+
+const handleSearchInput = (event: Event): void => {
+  const target = event.target as HTMLInputElement
+  searchQuery.value = target.value
+  currentPage.value = 1
+}
+
+const handleExport = async (customer: Shopper): Promise<void> => {
+  try {
+    isExporting.value = true
+    // ... rest of the export logic ...
+  } catch (err) {
+    console.error('Error exporting customer data:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to export customer data'
+  } finally {
+    isExporting.value = false
+  }
+}
+
+const openShopperDetails = (shopperId: string): void => {
   selectedShopperId.value = shopperId
   isModalOpen.value = true
 }
 
-const closeShopperDetails = () => {
+const closeShopperDetails = (): void => {
   isModalOpen.value = false
   selectedShopperId.value = ''
 }
@@ -426,7 +467,7 @@ const closeCreateModal = () => {
   fetchPage() // Refresh the list after creating a new customer
 }
 
-const openEditModal = (customer) => {
+const openEditModal = (customer: Shopper): void => {
   selectedShopper.value = customer
   selectedShopperId.value = customer.id
   isEditModalOpen.value = true
@@ -442,7 +483,24 @@ const handleShopperUpdated = () => {
   fetchShoppers()
 }
 
-onMounted(() => {
-  fetchPage()
+const loadMore = async () => {
+  if (!hasMore.value || loading.value) return
+  await fetchPage()
+}
+
+// Load more when scrolling to bottom
+const handleScroll = () => {
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
+    loadMore()
+  }
+}
+
+onMounted(async () => {
+  await fetchPage()
+  window.addEventListener('scroll', handleScroll)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
 })
 </script> 
