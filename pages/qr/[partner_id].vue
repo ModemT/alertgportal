@@ -240,7 +240,7 @@ const checkExistingPendingCharge = async () => {
         },
       });
     } else if (shopperAccount.value) {
-      response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}/charges?status=pending&limit=10&created_after=${tenMinutesAgo}`, {
+      response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}/charges?status=pending&limit=10&cursor=${tenMinutesAgo}`, {
         headers: {
           'accept': 'application/json',
           'x-partner-id': partnerId,
