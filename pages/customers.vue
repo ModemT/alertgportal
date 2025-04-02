@@ -119,7 +119,7 @@
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.phone }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(customer.created_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.total_completed_charges?.THB || '0.00' }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">฿{{ formatCurrency(customer.total_completed_charges?.THB || '0.00') }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{{ formatCurrency(customer.total_completed_charges?.THB || '0.00') }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <span :class="getStatusClass(customer.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
                   {{ customer.status }}
