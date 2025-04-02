@@ -54,6 +54,21 @@
               <p class="mt-1">{{ formatDate(shopper?.created_at) }}</p>
             </div>
           </div>
+
+          <!-- Total Value Card -->
+          <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-blue-800">มูลค่ารวม</p>
+                <p class="mt-1 text-2xl font-bold text-blue-900">{{ formatCurrency(shopper?.total_completed_charges?.THB || 0) }}</p>
+              </div>
+              <div class="bg-blue-100 rounded-full p-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
         
         <!-- Charges Table -->

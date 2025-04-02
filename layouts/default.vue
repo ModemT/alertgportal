@@ -29,7 +29,7 @@
           <div class="flex flex-col justify-between h-full">
             <div class="flex-grow">
               <div class="px-4 py-4 text-center border-b">
-                <h1 class="text-xl font-bold leading-none"><span class="text-primary-500">AlertG</span> Portal</h1>
+                <NuxtLink to="/" class="text-xl font-bold leading-none"><span class="text-primary-500">AlertG</span> Portal</NuxtLink>
               </div>
               <div class="p-4">
                 <ul class="space-y-1">
@@ -128,14 +128,6 @@
                       <path d="M4 6H20M4 12H20M4 18H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
                     </svg>
                   </button>
-                  <div class="relative mx-4 lg:mx-0">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center">
-                      <svg class="h-5 w-5 text-gray-400" viewBox="0 0 24 24" fill="none">
-                        <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-                      </svg>
-                    </span>
-                    <input class="form-input w-32 sm:w-64 rounded-md pl-10 pr-4 border-gray-300 focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" type="text" placeholder="ค้นหา">
-                  </div>
                 </div>
                 <div class="flex items-center">
                   <button class="flex mx-4 text-gray-600 focus:outline-none">
@@ -266,6 +258,55 @@ const navItems = [
     active: computed(() => route.path === '/settings')
   }
 ];
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('th-TH', {
+    style: 'currency',
+    currency: 'THB',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
+
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const getStatusClass = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-100 text-green-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'failed':
+      return 'bg-red-100 text-red-800';
+    case 'refunded':
+      return 'bg-gray-100 text-gray-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getStatusText = (status) => {
+  switch (status) {
+    case 'completed':
+      return 'สำเร็จ';
+    case 'pending':
+      return 'รอดำเนินการ';
+    case 'failed':
+      return 'ล้มเหลว';
+    case 'refunded':
+      return 'คืนเงินแล้ว';
+    default:
+      return status;
+  }
+};
 </script>
 
 <script>

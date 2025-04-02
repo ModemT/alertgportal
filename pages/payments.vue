@@ -2,7 +2,6 @@
   <div>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
       <h1 class="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-0">รายการชำระเงิน</h1>
-      <button class="btn btn-primary text-sm">สร้างการชำระเงินใหม่</button>
     </div>
     
     <!-- Filters -->
@@ -94,8 +93,7 @@
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.created_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.updated_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                <button @click="openChargeDetails(charge.id)" class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
-                <button class="text-primary-600 hover:text-primary-900">แก้ไข</button>
+                <button @click="openChargeDetails(charge.id)" class="text-primary-600 hover:text-primary-900">ดู</button>
               </td>
             </tr>
           </tbody>
