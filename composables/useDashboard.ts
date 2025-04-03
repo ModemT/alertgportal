@@ -100,19 +100,6 @@ export const useDashboard = () => {
       loading.value = true
       error.value = null
 
-      // Check if we have cached data that's less than 5 minutes old
-      const cachedData = localStorage.getItem('dashboardData')
-      const cachedTimestamp = localStorage.getItem('dashboardTimestamp')
-      const now = Date.now()
-      
-      if (!forceRefresh && cachedData && cachedTimestamp && (now - parseInt(cachedTimestamp)) < 300000) {
-        const parsed = JSON.parse(cachedData)
-        stats.value = parsed.stats
-        recentTransactions.value = parsed.recentTransactions
-        loading.value = false
-        return
-      }
-
       // Fetch initial data
       const [chargesResult, shoppersResult] = await Promise.all([
         fetchCharges(undefined, 100),
@@ -239,13 +226,6 @@ export const useDashboard = () => {
           method: charge.charge_metadata?.payment_method || 'พร้อมเพย์'
         }
       })
-
-      // Cache the results
-      localStorage.setItem('dashboardData', JSON.stringify({
-        stats: stats.value,
-        recentTransactions: recentTransactions.value
-      }))
-      localStorage.setItem('dashboardTimestamp', now.toString())
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
       console.error('Error fetching dashboard data:', err)
