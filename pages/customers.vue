@@ -174,6 +174,7 @@
       :shopper="selectedShopper"
       @close="closeEditModal"
       @updated="handleShopperUpdated"
+      @deleted="handleShopperDeleted"
     />
   </div>
 </template>
@@ -254,10 +255,29 @@ const filteredShoppers = computed(() => {
   return filtered
 })
 
+// Implement virtual scrolling
+const itemHeight = 72 // Height of each customer row in pixels
+const containerHeight = 600 // Fixed height for the container
+const visibleItems = computed(() => Math.ceil(containerHeight / itemHeight))
+const startIndex = ref(0)
+const endIndex = computed(() => Math.min(startIndex.value + visibleItems.value, filteredShoppers.value.length))
+
 const paginatedShoppers = computed(() => {
-  return filteredShoppers.value
+  return filteredShoppers.value.slice(startIndex.value, endIndex.value)
 })
 
+const handleScroll = (event: Event) => {
+  const target = event.target as HTMLElement
+  const scrollTop = target.scrollTop
+  startIndex.value = Math.floor(scrollTop / itemHeight)
+  
+  // Load more data when approaching the end
+  if (startIndex.value + visibleItems.value >= filteredShoppers.value.length - 10) {
+    loadMore()
+  }
+}
+
+// Update pagination
 const updatePagination = () => {
   totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
   if (currentPage.value > totalPages.value) {
@@ -269,6 +289,7 @@ const updatePagination = () => {
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
   nextCursor.value = null // Reset cursor when filters change
+  startIndex.value = 0 // Reset virtual scroll position
   fetchPage()
 })
 
@@ -456,6 +477,7 @@ const openShopperDetails = (shopperId: string): void => {
 const closeShopperDetails = (): void => {
   isModalOpen.value = false
   selectedShopperId.value = ''
+  fetchPage() // Refresh the shopper list after closing the modal
 }
 
 const openCreateModal = () => {
@@ -483,24 +505,20 @@ const handleShopperUpdated = () => {
   fetchShoppers()
 }
 
+const handleShopperDeleted = () => {
+  fetchShoppers()
+}
+
 const loadMore = async () => {
   if (!hasMore.value || loading.value) return
   await fetchPage()
 }
 
-// Load more when scrolling to bottom
-const handleScroll = () => {
-  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
-    loadMore()
-  }
-}
-
 onMounted(async () => {
   await fetchPage()
-  window.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
+  // Remove event listeners and clean up resources
 })
 </script> 

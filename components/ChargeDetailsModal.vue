@@ -65,13 +65,6 @@
                   <p class="text-sm font-medium text-gray-900">{{ charge?.description || '-' }}</p>
                 </div>
               </div>
-
-              <div v-if="charge?.charge_metadata && Object.keys(charge.charge_metadata).length > 0" class="mt-4">
-                <div class="bg-gray-50 p-4 rounded-lg">
-                  <p class="text-sm text-gray-500">ข้อมูลเพิ่มเติม</p>
-                  <pre class="text-sm font-medium text-gray-900 mt-2">{{ JSON.stringify(charge.charge_metadata, null, 2) }}</pre>
-                </div>
-              </div>
             </div>
           </div>
         </div>

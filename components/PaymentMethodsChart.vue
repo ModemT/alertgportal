@@ -1,5 +1,17 @@
 <template>
-  <div class="chart-container h-60">
+  <div class="chart-container h-60 relative">
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <span class="mt-2 text-sm text-gray-600">กำลังโหลดข้อมูล...</span>
+      </div>
+    </div>
+    <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
+      <div class="text-center text-red-600">
+        <p>{{ error }}</p>
+        <button @click="initChart" class="mt-2 text-sm text-primary-600 hover:text-primary-700">ลองใหม่</button>
+      </div>
+    </div>
     <canvas ref="chartRef"></canvas>
   </div>
 </template>
@@ -8,7 +20,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Chart from 'chart.js/auto'
 import { useCharges } from '~/composables/useCharges'
-import type { Charge } from '~/composables/useCharges'
+import type { Charge, PaginatedResponse } from '~/composables/useCharges'
 
 interface PaymentMethodStats {
   method: string
@@ -18,31 +30,30 @@ interface PaymentMethodStats {
 const chartRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 const { fetchCharges } = useCharges()
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 // Function to determine if we're on mobile
 const isMobile = () => window.innerWidth < 768
 
 // Create or update chart
-const createChart = async () => {
+const initChart = async () => {
   if (!chartRef.value) return
-  if (chart) {
-    chart.destroy()
-  }
-  
-  const ctx = chartRef.value.getContext('2d')
-  if (!ctx) return
   
   try {
-    // Fetch all charges with cursor-based pagination
+    loading.value = true
+    error.value = null
+
+    // Fetch all charges
     const allCharges: Charge[] = []
     let cursor: string | undefined = undefined
     let hasMore = true
     
     while (hasMore) {
-      const result = await fetchCharges(cursor, 100)
+      const result: PaginatedResponse<Charge> = await fetchCharges(cursor, 100)
       allCharges.push(...result.data)
-      cursor = result.nextCursor || undefined
-      hasMore = result.hasMore
+      cursor = result.next_cursor || undefined
+      hasMore = result.has_more
     }
     
     // Process payment methods data
@@ -88,11 +99,17 @@ const createChart = async () => {
     }
     
     const mobile = isMobile()
+
+    if (chart) {
+      chart.destroy()
+    }
+
+    const ctx = chartRef.value.getContext('2d')
+    if (!ctx) return
     
-    // Chart configuration
     chart = new Chart(ctx, {
       type: 'doughnut',
-      data: data,
+      data,
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -100,38 +117,43 @@ const createChart = async () => {
           legend: {
             position: mobile ? 'bottom' : 'right',
             labels: {
-              boxWidth: mobile ? 12 : 40,
+              boxWidth: 12,
+              padding: 15,
               font: {
                 size: mobile ? 10 : 12
-              },
-              padding: mobile ? 10 : 20
+              }
             }
           },
           tooltip: {
             callbacks: {
               label: function(context) {
                 const label = context.label || ''
-                const value = context.raw as number || 0
+                const value = context.raw as number
                 return `${label}: ${value}%`
               }
             }
           }
-        },
-        cutout: mobile ? '60%' : '65%'
+        }
       }
     })
-  } catch (error) {
-    console.error('Error fetching payment methods data:', error)
+  } catch (err) {
+    error.value = 'ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง'
+    console.error('Error creating chart:', err)
+  } finally {
+    loading.value = false
   }
 }
 
 // Handle window resize
 const handleResize = () => {
-  createChart()
+  if (chart) {
+    chart.options.plugins!.legend!.position = isMobile() ? 'bottom' : 'right'
+    chart.update()
+  }
 }
 
 onMounted(() => {
-  createChart()
+  initChart()
   window.addEventListener('resize', handleResize)
 })
 

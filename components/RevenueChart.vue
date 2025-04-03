@@ -1,5 +1,17 @@
 <template>
-  <div class="chart-container h-60">
+  <div class="chart-container h-60 relative">
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80">
+      <div class="flex flex-col items-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <span class="mt-2 text-sm text-gray-600">กำลังโหลดข้อมูล...</span>
+      </div>
+    </div>
+    <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
+      <div class="text-center text-red-600">
+        <p>{{ error }}</p>
+        <button @click="initChart" class="mt-2 text-sm text-primary-600 hover:text-primary-700">ลองใหม่</button>
+      </div>
+    </div>
     <canvas ref="chartRef"></canvas>
   </div>
 </template>
@@ -8,7 +20,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Chart from 'chart.js/auto'
 import { useCharges } from '~/composables/useCharges'
-import type { Charge } from '~/composables/useCharges'
+import type { Charge, PaginatedResponse } from '~/composables/useCharges'
 
 interface MonthlyData {
   month: string
@@ -19,6 +31,8 @@ interface MonthlyData {
 const chartRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 const { fetchCharges } = useCharges()
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 // Function to determine if we're on mobile
 const isMobile = () => window.innerWidth < 768
@@ -30,51 +44,51 @@ const getThaiMonth = (date: Date) => {
 }
 
 // Create or update chart
-const createChart = async () => {
+const initChart = async () => {
   if (!chartRef.value) return
-  if (chart) {
-    chart.destroy()
-  }
-  
-  const ctx = chartRef.value.getContext('2d')
-  if (!ctx) return
   
   try {
-    // Fetch all charges with cursor-based pagination
+    loading.value = true
+    error.value = null
+
+    // Fetch all charges
     const allCharges: Charge[] = []
     let cursor: string | undefined = undefined
     let hasMore = true
     
     while (hasMore) {
-      const result = await fetchCharges(cursor, 100)
+      const result: PaginatedResponse<Charge> = await fetchCharges(cursor, 100)
       allCharges.push(...result.data)
-      cursor = result.nextCursor || undefined
-      hasMore = result.hasMore
+      cursor = result.next_cursor || undefined
+      hasMore = result.has_more
     }
-    
-    // Process data for the last 12 months
-    const now = new Date()
-    const monthlyData: MonthlyData[] = Array(12).fill(0).map((_, index) => {
-      const month = new Date(now.getFullYear(), now.getMonth() - index, 1)
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() - index + 1, 1)
-      
-      const monthCharges = allCharges.filter(charge => {
-        try {
-          const chargeDate = new Date(charge.created_at)
-          if (isNaN(chargeDate.getTime())) {
-            console.error('Invalid date for charge:', charge)
-            return false
-          }
-          return chargeDate >= month && chargeDate < nextMonth
-        } catch (error) {
-          console.error('Error processing charge date:', error, charge)
-          return false
-        }
-      })
+
+    // Group charges by month
+    const chargesByMonth = new Map<string, Charge[]>()
+    allCharges.forEach(charge => {
+      const date = new Date(charge.created_at)
+      const monthKey = `${date.getFullYear()}-${date.getMonth()}`
+      if (!chargesByMonth.has(monthKey)) {
+        chargesByMonth.set(monthKey, [])
+      }
+      chargesByMonth.get(monthKey)?.push(charge)
+    })
+
+    // Get last 6 months
+    const today = new Date()
+    const months: Date[] = []
+    for (let i = 5; i >= 0; i--) {
+      const month = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      months.push(month)
+    }
+
+    // Calculate revenue and expenses for each month
+    const monthlyData: MonthlyData[] = months.map(month => {
+      const monthKey = `${month.getFullYear()}-${month.getMonth()}`
+      const monthCharges = chargesByMonth.get(monthKey) || []
 
       const revenue = monthCharges.reduce((sum, charge) => {
         try {
-          // Only count completed charges as revenue
           if (charge.status === 'completed') {
             const amount = Number(charge.amount)
             if (isNaN(amount)) {
@@ -89,10 +103,9 @@ const createChart = async () => {
           return sum
         }
       }, 0)
-      
+
       const expenses = monthCharges.reduce((sum, charge) => {
         try {
-          // Only count refunded charges as expenses, not cancelled ones
           if (charge.status === 'refunded') {
             const amount = Number(charge.amount)
             if (isNaN(amount)) {
@@ -113,8 +126,8 @@ const createChart = async () => {
         revenue,
         expenses
       }
-    }).reverse()
-    
+    })
+
     const data = {
       labels: monthlyData.map(d => d.month),
       datasets: [
@@ -138,13 +151,19 @@ const createChart = async () => {
         }
       ]
     }
-    
+
     const mobile = isMobile()
-    
-    // Chart configuration
+
+    if (chart) {
+      chart.destroy()
+    }
+
+    const ctx = chartRef.value.getContext('2d')
+    if (!ctx) return
+
     chart = new Chart(ctx, {
       type: 'line',
-      data: data,
+      data,
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -152,47 +171,81 @@ const createChart = async () => {
           legend: {
             position: mobile ? 'bottom' : 'top',
             labels: {
-              boxWidth: mobile ? 12 : 40,
+              boxWidth: 12,
+              padding: 15,
               font: {
                 size: mobile ? 10 : 12
-              },
-              padding: mobile ? 10 : 20
+              }
             }
           },
           tooltip: {
+            mode: 'index',
+            intersect: false,
             callbacks: {
               label: function(context) {
-                const label = context.dataset.label || ''
-                const value = context.raw as number || 0
-                return `${label}: ฿${value.toFixed(2)}`
+                let label = context.dataset.label || ''
+                if (label) {
+                  label += ': '
+                }
+                if (context.parsed.y !== null) {
+                  label += new Intl.NumberFormat('th-TH', {
+                    style: 'currency',
+                    currency: 'THB'
+                  }).format(context.parsed.y)
+                }
+                return label
               }
             }
           }
         },
         scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: mobile ? 10 : 12
+              }
+            }
+          },
           y: {
             beginAtZero: true,
             ticks: {
               callback: function(value) {
-                return '฿' + value.toLocaleString()
+                return new Intl.NumberFormat('th-TH', {
+                  style: 'currency',
+                  currency: 'THB',
+                  notation: 'compact',
+                  compactDisplay: 'short'
+                }).format(value as number)
+              },
+              font: {
+                size: mobile ? 10 : 12
               }
             }
           }
         }
       }
     })
-  } catch (error) {
-    console.error('Error fetching revenue data:', error)
+  } catch (err) {
+    error.value = 'ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง'
+    console.error('Error creating chart:', err)
+  } finally {
+    loading.value = false
   }
 }
 
 // Handle window resize
 const handleResize = () => {
-  createChart()
+  if (chart) {
+    chart.options.plugins!.legend!.position = isMobile() ? 'bottom' : 'top'
+    chart.update()
+  }
 }
 
 onMounted(() => {
-  createChart()
+  initChart()
   window.addEventListener('resize', handleResize)
 })
 

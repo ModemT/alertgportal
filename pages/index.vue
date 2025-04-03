@@ -178,14 +178,14 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount } from 'vue'
+import { onBeforeMount, onUnmounted } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useDashboard } from '~/composables/useDashboard'
 import RevenueChart from '~/components/RevenueChart.vue'
 import PaymentMethodsChart from '~/components/PaymentMethodsChart.vue'
 
 const { isAuthenticated, checkAuth } = useAuth()
-const { stats, recentTransactions, loading, error, fetchDashboardData } = useDashboard()
+const { stats, recentTransactions, loading, error, fetchDashboardData, startPolling, stopPolling } = useDashboard()
 
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat('th-TH', {
@@ -234,6 +234,11 @@ onBeforeMount(async () => {
     navigateTo('/login')
   } else {
     await fetchDashboardData()
+    startPolling() // Start polling for updates
   }
+})
+
+onUnmounted(() => {
+  stopPolling() // Stop polling when component is unmounted
 })
 </script> 

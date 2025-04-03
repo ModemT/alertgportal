@@ -3,7 +3,8 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
-    '@nuxtjs/tailwindcss'
+    '@nuxtjs/tailwindcss',
+    '@nuxt/image'
   ],
 
   app: {
@@ -26,6 +27,35 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE_URL || "https://aspera.railway.internal"
+    }
+  },
+
+  // Performance optimizations
+  nitro: {
+    compressPublicAssets: true,
+    minify: true,
+    timing: false,
+    storage: {
+      cache: {
+        driver: 'fs',
+        base: './.cache'
+      }
+    }
+  },
+
+  // Route rules for caching
+  routeRules: {
+    '/**': { 
+      headers: {
+        'Cache-Control': 'public, max-age=3600, must-revalidate'
+      }
+    },
+    '/api/**': {
+      cors: true,
+      headers: {
+        'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        'Access-Control-Allow-Origin': '*'
+      }
     }
   }
 })

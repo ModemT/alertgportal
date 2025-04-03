@@ -8,16 +8,38 @@ export interface Charge {
   amount: number
   currency: string
   status: string
-  description: string
-  charge_metadata: Record<string, any>
+  description?: string
+  charge_metadata?: {
+    payment_method?: string
+    fee?: number
+    tax?: number
+  }
   created_at: string
   updated_at: string
 }
 
-interface FetchChargesResponse {
-  data: Charge[]
-  nextCursor: string | null
-  hasMore: boolean
+export interface PaginatedResponse<T> {
+  data: T[]
+  next_cursor: string | null
+  has_more: boolean
+}
+
+// Debounce function
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) => {
+  let timeout: NodeJS.Timeout | null = null
+  
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout)
+    }
+    
+    timeout = setTimeout(() => {
+      func(...args)
+    }, wait)
+  }
 }
 
 export const useCharges = () => {
@@ -26,30 +48,53 @@ export const useCharges = () => {
   const charges = ref<Charge[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const retryCount = ref(0)
+  const maxRetries = 3
 
-  const fetchCharges = async (cursor?: string, limit: number = 10): Promise<FetchChargesResponse> => {
+  const fetchCharges = async (cursor?: string, limit: number = 10): Promise<PaginatedResponse<Charge>> => {
+    const formattedCursor = cursor ? new Date(cursor).toISOString() : undefined
+    
     try {
-      const formattedCursor = cursor ? new Date(cursor).toISOString() : undefined
-      const response = await fetch(`${apiBase}/charges?limit=${limit}${formattedCursor ? `&cursor=${formattedCursor}` : ''}`, {
-        headers: {
-          'accept': 'application/json',
-          'access-token': localStorage.getItem('token') || '',
-        },
-      })
+      loading.value = true
+      error.value = null
+      
+      const response = await fetch(
+        `${apiBase}/charges?limit=${limit}${formattedCursor ? `&cursor=${formattedCursor}` : ''}`,
+        {
+          headers: {
+            'accept': 'application/json',
+            'access-token': localStorage.getItem('token') || '',
+          },
+        }
+      )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch charges')
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      retryCount.value = 0 // Reset retry count on success
+      
       return {
         data: data.charges || [],
-        nextCursor: data.next_cursor || null,
-        hasMore: data.has_more || false
+        next_cursor: data.next_cursor || null,
+        has_more: data.has_more || false
       }
-    } catch (error) {
-      console.error('Error fetching charges:', error)
-      throw error
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
+      console.error('Error fetching charges:', err)
+      
+      // Implement retry logic
+      if (retryCount.value < maxRetries) {
+        retryCount.value++
+        console.log(`Retrying request (${retryCount.value}/${maxRetries})...`)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount.value)) // Exponential backoff
+        return fetchCharges(cursor, limit)
+      }
+      
+      throw err
+    } finally {
+      loading.value = false
     }
   }
 

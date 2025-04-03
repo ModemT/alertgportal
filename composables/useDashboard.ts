@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useRuntimeConfig } from '#app'
 import type { Charge } from './useCharges'
 import type { Shopper } from './useShoppers'
@@ -45,6 +45,7 @@ export const useDashboard = () => {
   const recentTransactions = ref<RecentTransaction[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  let pollingInterval: NodeJS.Timeout | null = null
 
   const fetchCharges = async (cursor?: string, limit: number = 10): Promise<PaginatedResponse<Charge>> => {
     const formattedCursor = cursor ? new Date(cursor).toISOString() : undefined
@@ -94,10 +95,23 @@ export const useDashboard = () => {
     }
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (forceRefresh: boolean = false) => {
     try {
       loading.value = true
       error.value = null
+
+      // Check if we have cached data that's less than 5 minutes old
+      const cachedData = localStorage.getItem('dashboardData')
+      const cachedTimestamp = localStorage.getItem('dashboardTimestamp')
+      const now = Date.now()
+      
+      if (!forceRefresh && cachedData && cachedTimestamp && (now - parseInt(cachedTimestamp)) < 300000) {
+        const parsed = JSON.parse(cachedData)
+        stats.value = parsed.stats
+        recentTransactions.value = parsed.recentTransactions
+        loading.value = false
+        return
+      }
 
       // Fetch initial data
       const [chargesResult, shoppersResult] = await Promise.all([
@@ -128,9 +142,9 @@ export const useDashboard = () => {
       stats.value.totalCustomers = shoppers.length
 
       // Calculate changes by comparing with previous month
-      const now = new Date()
-      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const currentDate = new Date()
+      const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
 
       const currentMonthShoppers = shoppers.filter(shopper => {
         const shopperDate = new Date(shopper.created_at)
@@ -225,6 +239,13 @@ export const useDashboard = () => {
           method: charge.charge_metadata?.payment_method || 'พร้อมเพย์'
         }
       })
+
+      // Cache the results
+      localStorage.setItem('dashboardData', JSON.stringify({
+        stats: stats.value,
+        recentTransactions: recentTransactions.value
+      }))
+      localStorage.setItem('dashboardTimestamp', now.toString())
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'An error occurred'
       console.error('Error fetching dashboard data:', err)
@@ -233,11 +254,34 @@ export const useDashboard = () => {
     }
   }
 
+  // Start polling for updates
+  const startPolling = () => {
+    if (pollingInterval) return
+    pollingInterval = setInterval(() => {
+      fetchDashboardData(true)
+    }, 30000) // Poll every 30 seconds
+  }
+
+  // Stop polling
+  const stopPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      pollingInterval = null
+    }
+  }
+
+  // Clean up on component unmount
+  onUnmounted(() => {
+    stopPolling()
+  })
+
   return {
     stats,
     recentTransactions,
     loading,
     error,
-    fetchDashboardData
+    fetchDashboardData,
+    startPolling,
+    stopPolling
   }
 } 

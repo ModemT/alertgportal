@@ -19,6 +19,7 @@ export interface UpdateShopperData {
   email?: string
   phone?: string
   is_active?: boolean
+  account?: string
 }
 
 interface CreateShopperData {
@@ -169,6 +170,31 @@ export const useShoppers = () => {
     }
   }
 
+  const deleteShopper = async (shopperId: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await fetch(`${apiBase}/shoppers/${shopperId}`, {
+        method: 'DELETE',
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete shopper')
+      }
+
+      return true
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'An error occurred'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     shoppers,
     loading,
@@ -177,6 +203,7 @@ export const useShoppers = () => {
     getShopper,
     getShopperByAccount,
     createShopper,
-    updateShopper
+    updateShopper,
+    deleteShopper
   }
 } 
