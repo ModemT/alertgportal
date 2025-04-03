@@ -453,15 +453,49 @@ const handleSaveQRCode = () => {
     isLoading.value = true
     errorMessage.value = null
 
-    // Create a link element
-    const link = document.createElement('a')
-    link.href = '/assets/image/qr_code.png'
-    link.download = `qr_${partnerId}_${amount}_${currency}.jpg`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Get the QR code image element
+    const qrImage = document.querySelector('img[alt="QR Code ชำระเงิน"]') as HTMLImageElement
+    if (!qrImage) {
+      throw new Error('ไม่พบ QR Code')
+    }
+
+    // Create a canvas element
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('ไม่สามารถสร้าง canvas ได้')
+    }
+
+    // Set canvas dimensions to match the image
+    canvas.width = qrImage.naturalWidth
+    canvas.height = qrImage.naturalHeight
+
+    // Draw the image onto the canvas
+    context.drawImage(qrImage, 0, 0)
+
+    // Convert canvas to blob
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        throw new Error('ไม่สามารถสร้างไฟล์ได้')
+      }
+
+      // Create a URL for the blob
+      const url = URL.createObjectURL(blob)
+
+      // Create a link element
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `qr_${partnerId}_${amount}_${currency}.png`
+      document.body.appendChild(link)
+      link.click()
+
+      // Clean up
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }, 'image/png')
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึก QR Code'
+    console.error('Error saving QR code:', err)
   } finally {
     isLoading.value = false
   }
