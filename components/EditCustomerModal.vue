@@ -58,16 +58,6 @@
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                     </div>
-                    <div>
-                      <label class="flex items-center">
-                        <input
-                          type="checkbox"
-                          v-model="form.is_active"
-                          class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                        />
-                        <span class="ml-2 text-sm text-gray-700">เปิดใช้งาน</span>
-                      </label>
-                    </div>
                   </div>
                   <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                     <button
@@ -163,7 +153,6 @@ const props = defineProps<{
     thai_name: string
     email: string
     phone: string
-    is_active: boolean
     account: string
   }
 }>()
@@ -182,7 +171,6 @@ interface ShopperForm {
   thai_name: string
   email: string
   phone: string
-  is_active: boolean
   account: string
 }
 
@@ -191,7 +179,6 @@ const form = ref<ShopperForm>({
   thai_name: '',
   email: '',
   phone: '',
-  is_active: true,
   account: ''
 })
 
@@ -200,7 +187,6 @@ const originalData = ref<ShopperForm>({
   thai_name: '',
   email: '',
   phone: '',
-  is_active: true,
   account: ''
 })
 
@@ -218,12 +204,7 @@ const handleSubmit = async () => {
     Object.keys(form.value).forEach((key) => {
       const typedKey = key as keyof ShopperForm
       if (form.value[typedKey] !== originalData.value[typedKey]) {
-        // Handle each field type separately
-        if (typedKey === 'is_active') {
-          updatedFields[typedKey] = form.value[typedKey] as boolean
-        } else {
-          updatedFields[typedKey] = form.value[typedKey] as string
-        }
+        updatedFields[typedKey] = form.value[typedKey] as string
       }
     })
 

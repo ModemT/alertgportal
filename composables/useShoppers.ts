@@ -18,7 +18,6 @@ export interface UpdateShopperData {
   thai_name?: string
   email?: string
   phone?: string
-  is_active?: boolean
   account?: string
 }
 
