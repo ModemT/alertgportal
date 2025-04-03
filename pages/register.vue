@@ -111,6 +111,9 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
 const username = ref('')
 const email = ref('')
 const password = ref('')
@@ -118,33 +121,33 @@ const confirmPassword = ref('')
 const partnerId = ref('')
 const loading = ref(false)
 const error = ref('')
-const { register, login } = useAuth()
+const { register } = useAuth()
+const router = useRouter()
+
+// Check if user is already logged in
+onMounted(() => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    navigateTo('/')
+  }
+})
 
 const handleRegister = async () => {
-  // Reset error
-  error.value = ''
+  if (loading.value || !username.value || !email.value || !password.value || !confirmPassword.value) return
   
-  // Validate passwords match
   if (password.value !== confirmPassword.value) {
     error.value = 'Passwords do not match'
     return
   }
-
-  // Validate password strength
-  if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters long'
-    return
-  }
-
+  
   loading.value = true
+  error.value = ''
   
   try {
-    const data = await register(username.value, email.value, password.value, partnerId.value)
-    // No need to login again since register already sets the token and user data
-    navigateTo('/')
+    await register(username.value, email.value, password.value, partnerId.value)
+    await router.push('/')
   } catch (err) {
-    error.value = err.message || 'An error occurred during registration'
-  } finally {
+    error.value = err instanceof Error ? err.message : 'An error occurred during registration'
     loading.value = false
   }
 }

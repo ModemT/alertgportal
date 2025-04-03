@@ -107,7 +107,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 
 const username = ref('')
@@ -117,6 +117,14 @@ const error = ref('')
 const { login } = useAuth()
 const route = useRoute()
 const router = useRouter()
+
+// Check if user is already logged in
+onMounted(() => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    navigateTo('/')
+  }
+})
 
 const handleLogin = async () => {
   if (loading.value || !username.value || !password.value) return
