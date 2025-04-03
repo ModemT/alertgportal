@@ -473,26 +473,53 @@ const handleSaveQRCode = () => {
     // Draw the image onto the canvas
     context.drawImage(qrImage, 0, 0)
 
-    // Convert canvas to blob
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        throw new Error('ไม่สามารถสร้างไฟล์ได้')
-      }
+    // For mobile devices, try to use the native share API first
+    if (navigator.share) {
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          throw new Error('ไม่สามารถสร้างไฟล์ได้')
+        }
 
-      // Create a URL for the blob
-      const url = URL.createObjectURL(blob)
+        try {
+          // Create a File object from the blob
+          const file = new File([blob], `qr_${partnerId}_${amount}_${currency}.png`, { type: 'image/png' })
+          
+          // Try to use the native share API
+          await navigator.share({
+            files: [file],
+            title: 'QR Code ชำระเงิน',
+            text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`
+          })
+        } catch (shareError) {
+          // If sharing fails, fall back to download method
+          console.log('Share API failed, falling back to download:', shareError)
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `qr_${partnerId}_${amount}_${currency}.png`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+        }
+      }, 'image/png')
+    } else {
+      // For desktop or browsers without share API, use the download method
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error('ไม่สามารถสร้างไฟล์ได้')
+        }
 
-      // Create a link element
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `qr_${partnerId}_${amount}_${currency}.png`
-      document.body.appendChild(link)
-      link.click()
-
-      // Clean up
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    }, 'image/png')
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `qr_${partnerId}_${amount}_${currency}.png`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึก QR Code'
     console.error('Error saving QR code:', err)
