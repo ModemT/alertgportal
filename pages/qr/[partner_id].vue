@@ -10,6 +10,7 @@ interface Charge {
   amount: number
   currency: string
   description: string
+  shopper_id: string
 }
 
 definePageMeta({
@@ -262,13 +263,16 @@ const checkExistingPendingCharge = async () => {
       const matchingCharge = data.charges.find((charge: Charge) => {
         const matches = charge.status === 'pending' && 
           Number(charge.amount) === Number(amount) && 
-          charge.currency === currency;
+          charge.currency === currency &&
+          charge.shopper_id === shopperId.value;
         console.log('Checking charge:', {
           id: charge.id,
           status: charge.status,
           amount: Number(charge.amount),
           targetAmount: Number(amount),
           currency: charge.currency,
+          shopper_id: charge.shopper_id,
+          targetShopperId: shopperId.value,
           matches
         });
         return matches;
