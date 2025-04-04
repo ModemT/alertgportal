@@ -257,6 +257,8 @@ const checkExistingPendingCharge = async () => {
 
     data = await response.json()
     console.log('data: ', data);
+    console.log('shopperAccount: ', shopperAccount.value);
+    console.log('shopperId: ', shopperId.value);
     
     if (data.charges && data.charges.length > 0) {
       // Find any pending charge with matching amount and currency
