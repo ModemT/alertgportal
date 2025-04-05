@@ -13,6 +13,7 @@
             <option value="">ทุกสถานะ</option>
             <option value="completed">สำเร็จ</option>
             <option value="refunded">คืนเงินแล้ว</option>
+            <option value="pending">รอดำเนินการ</option>
             <option value="failed">ล้มเหลว</option>
             <option value="cancelled">ยกเลิก</option>
           </select>
@@ -93,7 +94,16 @@
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.created_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(charge.updated_at) }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
-                <button @click="openChargeDetails(charge.id)" class="text-primary-600 hover:text-primary-900">ดู</button>
+                <div class="flex justify-end space-x-2">
+                  <button @click="openChargeDetails(charge.id)" class="text-primary-600 hover:text-primary-900">ดู</button>
+                  <button 
+                    v-if="charge.status === 'pending'"
+                    @click="openCancelConfirm(charge.id)" 
+                    class="text-red-600 hover:text-red-900"
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -126,6 +136,57 @@
       :charge-id="selectedChargeId"
       @close="closeChargeDetails"
     />
+
+    <!-- Cancel Confirmation Modal -->
+    <div v-if="showCancelConfirm" class="fixed inset-0 z-50 overflow-y-auto">
+      <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+
+        <!-- Modal panel -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                  ยืนยันการยกเลิกการชำระเงิน
+                </h3>
+                <div class="mt-2">
+                  <p class="text-sm text-gray-500">
+                    คุณแน่ใจหรือไม่ที่จะยกเลิกการชำระเงินนี้? การกระทำนี้ไม่สามารถย้อนกลับได้
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              @click="handleCancelCharge"
+              :disabled="loading"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              {{ loading ? 'กำลังยกเลิก...' : 'ยืนยันการยกเลิก' }}
+            </button>
+            <button
+              type="button"
+              @click="closeCancelConfirm"
+              :disabled="loading"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -134,10 +195,10 @@ import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
 
-const { charges, loading, error, fetchCharges } = useCharges()
+const { charges, loading, error, fetchCharges, cancelCharge } = useCharges()
 
 const currentPage = ref(1)
-const itemsPerPage = ref(10)
+const itemsPerPage = ref(50)
 const totalItems = ref(0)
 const totalPages = ref(0)
 const isModalOpen = ref(false)
@@ -150,6 +211,8 @@ const endDate = ref('')
 const isExporting = ref(false)
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
+const showCancelConfirm = ref(false)
+const chargeToCancel = ref<string | null>(null)
 
 const filteredCharges = computed(() => {
   let filtered = [...charges.value]
@@ -206,6 +269,7 @@ const updatePagination = () => {
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
   nextCursor.value = null // Reset cursor when filters change
+  charges.value = [] // Clear existing charges
   fetchPage()
 })
 
@@ -220,7 +284,17 @@ watch(timeFilter, (newValue) => {
 const fetchPage = async (): Promise<void> => {
   try {
     loading.value = true
-    const result = await fetchCharges(nextCursor.value || undefined, itemsPerPage.value)
+    
+    // Build options for the API call
+    const options = {
+      cursor: nextCursor.value || undefined,
+      limit: itemsPerPage.value,
+      status: statusFilter.value || undefined,
+      search: searchQuery.value || undefined
+    }
+    
+    const result = await fetchCharges(options)
+    
     if (nextCursor.value === null) {
       // First page
       charges.value = result.data
@@ -228,8 +302,8 @@ const fetchPage = async (): Promise<void> => {
       // Append to existing data
       charges.value = [...charges.value, ...result.data]
     }
-    nextCursor.value = result.nextCursor
-    hasMore.value = result.hasMore
+    nextCursor.value = result.next_cursor
+    hasMore.value = result.has_more
     totalItems.value = charges.value.length
     updatePagination()
   } catch (err) {
@@ -255,10 +329,15 @@ const handleScroll = () => {
 onMounted(async () => {
   try {
     loading.value = true
-    const result = await fetchCharges(undefined, itemsPerPage.value)
+    const options = {
+      limit: itemsPerPage.value,
+      status: statusFilter.value || undefined,
+      search: searchQuery.value || undefined
+    }
+    const result = await fetchCharges(options)
     charges.value = result.data
-    nextCursor.value = result.nextCursor
-    hasMore.value = result.hasMore
+    nextCursor.value = result.next_cursor
+    hasMore.value = result.has_more
     totalItems.value = charges.value.length
     updatePagination()
   } catch (err) {
@@ -444,5 +523,127 @@ const prevPage = (): void => {
 
 const goToPage = (page: number): void => {
   currentPage.value = page
+}
+
+const openCancelConfirm = (chargeId: string) => {
+  chargeToCancel.value = chargeId
+  showCancelConfirm.value = true
+}
+
+const handleCancelCharge = async () => {
+  if (!chargeToCancel.value) return
+  
+  try {
+    loading.value = true
+    await cancelCharge(chargeToCancel.value)
+    
+    // Reset pagination and filters
+    currentPage.value = 1
+    nextCursor.value = null
+    hasMore.value = true
+    charges.value = []
+    
+    // Fetch fresh data
+    const options = {
+      limit: itemsPerPage.value,
+      status: statusFilter.value || undefined,
+      search: searchQuery.value || undefined
+    }
+    const result = await fetchCharges(options)
+    charges.value = result.data
+    nextCursor.value = result.next_cursor
+    hasMore.value = result.has_more
+    totalItems.value = charges.value.length
+    updatePagination()
+    
+    // Close modal and reset state
+    showCancelConfirm.value = false
+    chargeToCancel.value = null
+    
+    // Show success notification
+    const toast = document.createElement('div')
+    toast.className = 'fixed bottom-4 right-4 bg-green-50 border border-green-200 rounded-lg shadow-lg p-4 max-w-sm z-50'
+    toast.innerHTML = `
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-green-800">ยกเลิกการชำระเงินสำเร็จ</p>
+        </div>
+        <div class="ml-4 flex-shrink-0 flex">
+          <button class="inline-flex text-green-400 hover:text-green-500">
+            <span class="sr-only">ปิด</span>
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(toast)
+    
+    // Add click handler to close button
+    const closeButton = toast.querySelector('button')
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        toast.remove()
+      })
+    }
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      toast.remove()
+    }, 5000)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to cancel charge'
+    // Show error notification
+    const toast = document.createElement('div')
+    toast.className = 'fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4 max-w-sm z-50'
+    toast.innerHTML = `
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-red-800">ไม่สามารถยกเลิกการชำระเงินได้</p>
+          <p class="mt-1 text-sm text-red-700">${error.value}</p>
+        </div>
+        <div class="ml-4 flex-shrink-0 flex">
+          <button class="inline-flex text-red-400 hover:text-red-500">
+            <span class="sr-only">ปิด</span>
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(toast)
+    
+    // Add click handler to close button
+    const closeButton = toast.querySelector('button')
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        toast.remove()
+      })
+    }
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      toast.remove()
+    }, 5000)
+  } finally {
+    loading.value = false
+  }
+}
+
+const closeCancelConfirm = () => {
+  showCancelConfirm.value = false
+  chargeToCancel.value = null
 }
 </script> 

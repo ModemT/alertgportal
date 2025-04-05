@@ -42,6 +42,13 @@ const debounce = <T extends (...args: any[]) => any>(
   }
 }
 
+interface FetchChargesOptions {
+  cursor?: string;
+  limit?: number;
+  status?: string;
+  search?: string;
+}
+
 export const useCharges = () => {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase as string
@@ -51,15 +58,23 @@ export const useCharges = () => {
   const retryCount = ref(0)
   const maxRetries = 3
 
-  const fetchCharges = async (cursor?: string, limit: number = 10): Promise<PaginatedResponse<Charge>> => {
+  const fetchCharges = async (options: FetchChargesOptions = {}): Promise<PaginatedResponse<Charge>> => {
+    const { cursor, limit = 50, status, search } = options
     const formattedCursor = cursor ? new Date(cursor).toISOString() : undefined
     
     try {
       loading.value = true
       error.value = null
       
+      // Build query parameters
+      const params = new URLSearchParams()
+      if (formattedCursor) params.append('cursor', formattedCursor)
+      if (limit) params.append('limit', limit.toString())
+      if (status) params.append('status', status)
+      if (search) params.append('search', search)
+      
       const response = await fetch(
-        `${apiBase}/charges?limit=${limit}${formattedCursor ? `&cursor=${formattedCursor}` : ''}`,
+        `${apiBase}/charges?${params.toString()}`,
         {
           headers: {
             'accept': 'application/json',
@@ -89,7 +104,7 @@ export const useCharges = () => {
         retryCount.value++
         console.log(`Retrying request (${retryCount.value}/${maxRetries})...`)
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount.value)) // Exponential backoff
-        return fetchCharges(cursor, limit)
+        return fetchCharges(options)
       }
       
       throw err
