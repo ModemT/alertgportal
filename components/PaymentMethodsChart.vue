@@ -44,16 +44,33 @@ const initChart = async () => {
     loading.value = true
     error.value = null
 
-    // Fetch all charges
+    // Fetch charges for the last 6 months only
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - 5) // Get last 6 months
+    startDate.setDate(1) // Start from first day of month
+    startDate.setHours(0, 0, 0, 0)
+
+    // Fetch all charges for the last 6 months
     const allCharges: Charge[] = []
     let cursor: string | undefined = undefined
     let hasMore = true
     
     while (hasMore) {
-      const result: PaginatedResponse<Charge> = await fetchCharges(cursor, 100)
-      allCharges.push(...result.data)
+      const result = await fetchCharges({
+        cursor,
+        limit: 100
+      })
+      
+      // Filter charges by date range
+      const filteredCharges = result.data.filter(charge => {
+        const chargeDate = new Date(charge.created_at)
+        return chargeDate >= startDate && chargeDate <= endDate
+      })
+      
+      allCharges.push(...filteredCharges)
       cursor = result.next_cursor || undefined
-      hasMore = result.has_more
+      hasMore = result.has_more && cursor !== undefined
     }
     
     // Process payment methods data

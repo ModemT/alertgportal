@@ -51,16 +51,33 @@ const initChart = async () => {
     loading.value = true
     error.value = null
 
-    // Fetch all charges
+    // Fetch charges for the last 6 months only
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - 5) // Get last 6 months
+    startDate.setDate(1) // Start from first day of month
+    startDate.setHours(0, 0, 0, 0)
+
+    // Fetch all charges for the last 6 months
     const allCharges: Charge[] = []
     let cursor: string | undefined = undefined
     let hasMore = true
     
     while (hasMore) {
-      const result: PaginatedResponse<Charge> = await fetchCharges(cursor, 100)
-      allCharges.push(...result.data)
+      const result = await fetchCharges({
+        cursor,
+        limit: 100
+      })
+      
+      // Filter charges by date range
+      const filteredCharges = result.data.filter(charge => {
+        const chargeDate = new Date(charge.created_at)
+        return chargeDate >= startDate && chargeDate <= endDate
+      })
+      
+      allCharges.push(...filteredCharges)
       cursor = result.next_cursor || undefined
-      hasMore = result.has_more
+      hasMore = result.has_more && cursor !== undefined
     }
 
     // Group charges by month
@@ -75,10 +92,9 @@ const initChart = async () => {
     })
 
     // Get last 6 months
-    const today = new Date()
     const months: Date[] = []
     for (let i = 5; i >= 0; i--) {
-      const month = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const month = new Date(endDate.getFullYear(), endDate.getMonth() - i, 1)
       months.push(month)
     }
 
@@ -88,37 +104,17 @@ const initChart = async () => {
       const monthCharges = chargesByMonth.get(monthKey) || []
 
       const revenue = monthCharges.reduce((sum, charge) => {
-        try {
-          if (charge.status === 'completed') {
-            const amount = Number(charge.amount)
-            if (isNaN(amount)) {
-              console.error('Invalid amount for charge:', charge)
-              return sum
-            }
-            return sum + amount
-          }
-          return sum
-        } catch (error) {
-          console.error('Error processing revenue:', error, charge)
-          return sum
+        if (charge.status === 'completed') {
+          return sum + Number(charge.amount || 0)
         }
+        return sum
       }, 0)
 
       const expenses = monthCharges.reduce((sum, charge) => {
-        try {
-          if (charge.status === 'refunded') {
-            const amount = Number(charge.amount)
-            if (isNaN(amount)) {
-              console.error('Invalid amount for charge:', charge)
-              return sum
-            }
-            return sum + amount
-          }
-          return sum
-        } catch (error) {
-          console.error('Error processing expenses:', error, charge)
-          return sum
+        if (charge.status === 'refunded') {
+          return sum + Number(charge.amount || 0)
         }
+        return sum
       }, 0)
 
       return {
