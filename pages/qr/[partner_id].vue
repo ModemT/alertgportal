@@ -231,6 +231,22 @@ const checkExistingPendingCharge = async () => {
     let response;
     let data;
 
+    // If we have shopper account but no ID, try to fetch shopper details first
+    if (shopperAccount.value && !shopperId.value) {
+      try {
+        await fetchShopperByAccount()
+      } catch (err) {
+        console.error('Error fetching shopper by account:', err)
+        return false
+      }
+    }
+
+    // If we still don't have either shopper_id or account, we can't check for charges
+    if (!shopperId.value && !shopperAccount.value) {
+      console.log('No shopper information available')
+      return false
+    }
+
     // Try to get charges based on shopper_id or account
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     if (shopperId.value) {
