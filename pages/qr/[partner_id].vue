@@ -504,7 +504,7 @@ const handleSaveQRCode = () => {
 
         try {
           // Create a File object from the blob
-          const file = new File([blob], `qr_${partnerId}_${amount}_${currency}.png`, { type: 'image/png' })
+          const file = new File([blob], `${partnerId}.png`, { type: 'image/png' })
           
           // Try to use the native share API
           await navigator.share({
@@ -518,7 +518,7 @@ const handleSaveQRCode = () => {
           const url = URL.createObjectURL(blob)
           const link = document.createElement('a')
           link.href = url
-          link.download = `qr_${partnerId}_${amount}_${currency}.png`
+          link.download = `${partnerId}.png`
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)
@@ -535,7 +535,7 @@ const handleSaveQRCode = () => {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
-        link.download = `qr_${partnerId}_${amount}_${currency}.png`
+        link.download = `${partnerId}.png`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
@@ -586,7 +586,7 @@ const handleCancel = () => {
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
           <div class="aspect-square">
             <img
-              src="/assets/image/qr_code.png"
+              :src="`/assets/image/qr_${partnerId}.png`"
               alt="QR Code ชำระเงิน"
               class="w-full h-full object-contain"
             />
@@ -696,7 +696,7 @@ const handleCancel = () => {
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
             <div class="aspect-square">
               <img
-                src="/assets/image/qr_code.png"
+                :src="`/assets/image/qr_${partnerId}.png`"
                 alt="QR Code ชำระเงิน"
                 class="w-full h-full object-contain"
               />
