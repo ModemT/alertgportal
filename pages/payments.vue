@@ -113,7 +113,7 @@
       <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
         <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง {{ charges.length }} รายการ
+          แสดง {{ filteredCharges.length }} รายการ
         </div>
         <div class="flex items-center">
           <button 
@@ -217,22 +217,22 @@ const chargeToCancel = ref<string | null>(null)
 
 // Add debounced search function
 const debouncedSearch = debounce(async () => {
-  currentPage.value = 1 // Reset to first page when search changes
-  nextCursor.value = null // Reset cursor when search changes
+  currentPage.value = 1 // Reset to first page when filters change
+  nextCursor.value = null // Reset cursor when filters change
   charges.value = [] // Clear existing charges
   await fetchPage()
 }, 300) // 300ms delay
 
-// Watch searchQuery with debouncing
-watch(searchQuery, (newValue) => {
-  if (newValue === '') {
-    // Reset and fetch immediately when search is cleared
-    currentPage.value = 1
-    nextCursor.value = null
-    charges.value = []
-    fetchPage()
-  } else {
-    debouncedSearch()
+// Watch all filters with debouncing
+watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
+  debouncedSearch()
+})
+
+// Watch for timeFilter changes to reset date range
+watch(timeFilter, (newValue) => {
+  if (newValue !== 'custom') {
+    startDate.value = ''
+    endDate.value = ''
   }
 })
 
@@ -286,22 +286,6 @@ const updatePagination = () => {
     currentPage.value = Math.max(1, totalPages.value)
   }
 }
-
-// Watch filters to update pagination
-watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
-  currentPage.value = 1 // Reset to first page when filters change
-  nextCursor.value = null // Reset cursor when filters change
-  charges.value = [] // Clear existing charges
-  fetchPage()
-})
-
-// Watch for timeFilter changes to reset date range
-watch(timeFilter, (newValue) => {
-  if (newValue !== 'custom') {
-    startDate.value = ''
-    endDate.value = ''
-  }
-})
 
 const fetchPage = async (): Promise<void> => {
   try {
