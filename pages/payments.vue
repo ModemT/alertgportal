@@ -217,17 +217,23 @@ const chargeToCancel = ref<string | null>(null)
 
 // Add debounced search function
 const debouncedSearch = debounce(async () => {
-  if (searchQuery.value) {
-    currentPage.value = 1 // Reset to first page when search changes
-    nextCursor.value = null // Reset cursor when search changes
-    charges.value = [] // Clear existing charges
-    await fetchPage()
-  }
+  currentPage.value = 1 // Reset to first page when search changes
+  nextCursor.value = null // Reset cursor when search changes
+  charges.value = [] // Clear existing charges
+  await fetchPage()
 }, 300) // 300ms delay
 
 // Watch searchQuery with debouncing
-watch(searchQuery, () => {
-  debouncedSearch()
+watch(searchQuery, (newValue) => {
+  if (newValue === '') {
+    // Reset and fetch immediately when search is cleared
+    currentPage.value = 1
+    nextCursor.value = null
+    charges.value = []
+    fetchPage()
+  } else {
+    debouncedSearch()
+  }
 })
 
 const filteredCharges = computed(() => {
@@ -343,25 +349,8 @@ const handleScroll = () => {
 }
 
 onMounted(async () => {
-  try {
-    loading.value = true
-    const options = {
-      limit: itemsPerPage.value,
-      status: statusFilter.value || undefined,
-      search: searchQuery.value || undefined
-    }
-    const result = await fetchCharges(options)
-    charges.value = result.data
-    nextCursor.value = result.next_cursor
-    hasMore.value = result.has_more
-    totalItems.value = charges.value.length
-    updatePagination()
-  } catch (err) {
-    console.error('Error fetching initial charges:', err)
-    error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
-  } finally {
-    loading.value = false
-  }
+  await fetchPage()
+  window.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
