@@ -194,6 +194,7 @@
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
+import { debounce } from 'lodash'
 
 const { charges, loading, error, fetchCharges, cancelCharge } = useCharges()
 
@@ -213,6 +214,21 @@ const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
 const showCancelConfirm = ref(false)
 const chargeToCancel = ref<string | null>(null)
+
+// Add debounced search function
+const debouncedSearch = debounce(async () => {
+  if (searchQuery.value) {
+    currentPage.value = 1 // Reset to first page when search changes
+    nextCursor.value = null // Reset cursor when search changes
+    charges.value = [] // Clear existing charges
+    await fetchPage()
+  }
+}, 300) // 300ms delay
+
+// Watch searchQuery with debouncing
+watch(searchQuery, () => {
+  debouncedSearch()
+})
 
 const filteredCharges = computed(() => {
   let filtered = [...charges.value]
