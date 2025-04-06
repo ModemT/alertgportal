@@ -216,7 +216,7 @@ const hasMore = ref(true)
 const showCancelConfirm = ref(false)
 const chargeToCancel = ref<string | null>(null)
 
-// Add debounced search function
+// Modify the debounced search to handle status changes properly
 const debouncedSearch = debounce(async () => {
   currentPage.value = 1 // Reset to first page when filters change
   nextCursor.value = null // Reset cursor when filters change
@@ -224,8 +224,21 @@ const debouncedSearch = debounce(async () => {
   await fetchPage()
 }, 300) // 300ms delay
 
-// Watch all filters with debouncing
-watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
+// Watch status filter changes separately to ensure immediate update
+watch(statusFilter, (newValue) => {
+  if (newValue === 'refunded') {
+    // Force immediate refresh for refund status
+    currentPage.value = 1
+    nextCursor.value = null
+    charges.value = []
+    fetchPage()
+  } else {
+    debouncedSearch()
+  }
+})
+
+// Watch other filters with debouncing
+watch([timeFilter, searchQuery, startDate, endDate], () => {
   debouncedSearch()
 })
 
@@ -303,7 +316,7 @@ const fetchPage = async (): Promise<void> => {
     const result = await fetchCharges(options)
     
     if (nextCursor.value === null) {
-      // First page
+      // First page - replace all data
       charges.value = result.data
     } else {
       // Append to existing data
