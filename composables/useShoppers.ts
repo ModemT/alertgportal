@@ -11,6 +11,7 @@ export interface Shopper {
   created_at: string
   updated_at: string
   total_completed_charges?: Record<string, number>
+  bank?: string
 }
 
 export interface UpdateShopperData {
@@ -19,6 +20,7 @@ export interface UpdateShopperData {
   email?: string
   phone?: string
   account?: string
+  bank?: string
 }
 
 interface CreateShopperData {
@@ -26,6 +28,7 @@ interface CreateShopperData {
   email: string
   phone: string
   account: string
+  bank: string
 }
 
 export const useShoppers = () => {

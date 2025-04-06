@@ -50,6 +50,10 @@
               <p class="mt-1">{{ shopper?.account }}</p>
             </div>
             <div>
+              <p class="text-sm font-medium text-gray-500">ธนาคาร</p>
+              <p class="mt-1">{{ shopper?.bank }}</p>
+            </div>
+            <div>
               <p class="text-sm font-medium text-gray-500">วันที่เข้าร่วม</p>
               <p class="mt-1">{{ formatDate(shopper?.created_at) }}</p>
             </div>

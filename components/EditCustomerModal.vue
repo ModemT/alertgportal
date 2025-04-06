@@ -58,6 +58,15 @@
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                     </div>
+                    <div>
+                      <label for="bank" class="block text-sm font-medium text-gray-700">ธนาคาร</label>
+                      <input
+                        type="text"
+                        id="bank"
+                        v-model="form.bank"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                      />
+                    </div>
                   </div>
                   <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                     <button
@@ -154,6 +163,7 @@ const props = defineProps<{
     email: string
     phone: string
     account: string
+    bank: string
   }
 }>()
 
@@ -172,6 +182,7 @@ interface ShopperForm {
   email: string
   phone: string
   account: string
+  bank: string
 }
 
 const form = ref<ShopperForm>({
@@ -179,7 +190,8 @@ const form = ref<ShopperForm>({
   thai_name: '',
   email: '',
   phone: '',
-  account: ''
+  account: '',
+  bank: ''
 })
 
 const originalData = ref<ShopperForm>({
@@ -187,7 +199,8 @@ const originalData = ref<ShopperForm>({
   thai_name: '',
   email: '',
   phone: '',
-  account: ''
+  account: '',
+  bank: ''
 })
 
 onMounted(() => {

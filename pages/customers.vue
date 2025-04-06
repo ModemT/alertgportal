@@ -111,6 +111,7 @@
                   <div class="ml-3 sm:ml-4">
                     <div class="text-sm font-medium text-gray-900">{{ customer.name }}</div>
                     <div class="text-sm text-gray-500">เลขบัญชี: {{ customer.account }}</div>
+                    <div class="text-sm text-gray-500">ธนาคาร: {{ customer.bank }}</div>
                     <div class="text-xs text-gray-400">รหัส: {{ customer.id }}</div>
                   </div>
                 </div>

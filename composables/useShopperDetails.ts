@@ -21,6 +21,7 @@ interface Shopper {
   email: string
   phone: string
   account: string
+  bank: string
   created_at: string
   updated_at: string | null
   total_completed_charges: {
