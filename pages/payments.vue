@@ -194,7 +194,8 @@
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
-import { debounce } from 'lodash'
+import _ from 'lodash'
+const { debounce } = _
 
 const { charges, loading, error, fetchCharges, cancelCharge } = useCharges()
 
