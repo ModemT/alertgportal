@@ -132,10 +132,11 @@ export const useDashboard = () => {
       const currentDate = new Date()
       const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
       const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
 
       const currentMonthShoppers = shoppers.filter(shopper => {
         const shopperDate = new Date(shopper.created_at)
-        return shopperDate >= currentMonth
+        return shopperDate >= currentMonth && shopperDate < nextMonth
       })
 
       const previousMonthShoppers = shoppers.filter(shopper => {
@@ -153,19 +154,20 @@ export const useDashboard = () => {
         return sum + Number(shopper.total_completed_charges?.THB || 0)
       }, 0)
 
-      stats.value.revenueChange = previousMonthRevenue > 0
-        ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
-        : 0
+      // Calculate revenue change with proper handling of edge cases
+      stats.value.revenueChange = previousMonthRevenue === 0 
+        ? (currentMonthRevenue > 0 ? 100 : 0) // If previous was 0, show 100% if current has revenue
+        : ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
 
-      // Calculate customer growth
-      stats.value.customerChange = previousMonthShoppers.length > 0
-        ? ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
-        : 0
+      // Calculate customer growth with proper handling of edge cases
+      stats.value.customerChange = previousMonthShoppers.length === 0
+        ? (currentMonthShoppers.length > 0 ? 100 : 0) // If previous was 0, show 100% if current has customers
+        : ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
 
       // Filter charges by month for pending amount calculations
       const currentMonthCharges = charges.filter(charge => {
         const chargeDate = new Date(charge.created_at)
-        return chargeDate >= currentMonth
+        return chargeDate >= currentMonth && chargeDate < nextMonth
       })
 
       const previousMonthCharges = charges.filter(charge => {
@@ -194,9 +196,10 @@ export const useDashboard = () => {
         return sum
       }, 0)
 
-      stats.value.pendingChange = previousMonthPending > 0
-        ? ((currentMonthPending - previousMonthPending) / previousMonthPending) * 100
-        : 0
+      // Calculate pending change with proper handling of edge cases
+      stats.value.pendingChange = previousMonthPending === 0
+        ? (currentMonthPending > 0 ? 100 : 0) // If previous was 0, show 100% if current has pending
+        : ((currentMonthPending - previousMonthPending) / previousMonthPending) * 100
 
       // Get recent transactions with shopper details
       const recentCharges = charges
