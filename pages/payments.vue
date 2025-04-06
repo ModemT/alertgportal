@@ -191,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
 import _ from 'lodash'
@@ -309,10 +309,15 @@ const fetchPage = async (): Promise<void> => {
       // Append to existing data
       charges.value = [...charges.value, ...result.data]
     }
+    
+    // Update pagination state
     nextCursor.value = result.next_cursor
     hasMore.value = result.has_more
     totalItems.value = charges.value.length
     updatePagination()
+    
+    // Force a UI update
+    await nextTick()
   } catch (err) {
     console.error('Error fetching charges:', err)
     error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
@@ -323,7 +328,13 @@ const fetchPage = async (): Promise<void> => {
 
 const loadMore = async () => {
   if (!hasMore.value || loading.value) return
-  await fetchPage()
+  
+  try {
+    loading.value = true
+    await fetchPage()
+  } finally {
+    loading.value = false
+  }
 }
 
 // Load more when scrolling to bottom
@@ -333,8 +344,22 @@ const handleScroll = () => {
   }
 }
 
+// Add polling for status updates
+const startPolling = () => {
+  const pollInterval = setInterval(async () => {
+    if (!loading.value && hasMore.value) {
+      await fetchPage()
+    }
+  }, 5000) // Poll every 5 seconds
+  
+  onUnmounted(() => {
+    clearInterval(pollInterval)
+  })
+}
+
 onMounted(async () => {
   await fetchPage()
+  startPolling()
   window.addEventListener('scroll', handleScroll)
 })
 
