@@ -61,6 +61,16 @@
                     required
                   />
                 </div>
+                <div>
+                  <label for="bank" class="block text-sm font-medium text-gray-700">ธนาคาร</label>
+                  <input
+                    type="text"
+                    id="bank"
+                    v-model="form.bank"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
+                    required
+                  />
+                </div>
                 <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
                   <button
                     type="submit"
@@ -107,7 +117,8 @@ const form = ref({
   thai_name: '',
   email: '',
   phone: '',
-  account: ''
+  account: '',
+  bank: ''
 })
 
 const handleSubmit = async () => {
