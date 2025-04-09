@@ -138,7 +138,7 @@
       <!-- Pagination -->
       <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
         <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง {{ shoppers.length }} รายการ
+          แสดง {{ filteredShoppers.length }} รายการ
         </div>
         <div class="flex items-center">
           <button 
@@ -191,7 +191,7 @@ import type { Shopper } from '~/composables/useShoppers'
 const { shoppers, loading, error, fetchShoppers } = useShoppers()
 
 const currentPage = ref(1)
-const itemsPerPage = ref(10)
+const itemsPerPage = ref(50)
 const totalItems = ref(0)
 const totalPages = ref(0)
 const isModalOpen = ref(false)
@@ -256,15 +256,8 @@ const filteredShoppers = computed(() => {
   return filtered
 })
 
-// Implement virtual scrolling
-const itemHeight = 72 // Height of each customer row in pixels
-const containerHeight = 600 // Fixed height for the container
-const visibleItems = computed(() => Math.ceil(containerHeight / itemHeight))
-const startIndex = ref(0)
-const endIndex = computed(() => Math.min(startIndex.value + visibleItems.value, filteredShoppers.value.length))
-
 const paginatedShoppers = computed(() => {
-  return filteredShoppers.value.slice(startIndex.value, endIndex.value)
+  return filteredShoppers.value
 })
 
 const handleScroll = (event: Event) => {
@@ -290,7 +283,7 @@ const updatePagination = () => {
 watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
   nextCursor.value = null // Reset cursor when filters change
-  startIndex.value = 0 // Reset virtual scroll position
+  shoppers.value = [] // Clear existing shoppers
   fetchPage()
 })
 
@@ -381,22 +374,9 @@ const fetchPage = async (): Promise<void> => {
   }
 }
 
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-    fetchPage()
-  }
-}
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--
-    fetchPage()
-  }
-}
-
-const goToPage = (page: number): void => {
-  currentPage.value = page
+const loadMore = async () => {
+  if (!hasMore.value || loading.value) return
+  await fetchPage()
 }
 
 const formatDate = (dateString: string): string => {
@@ -508,11 +488,6 @@ const handleShopperUpdated = () => {
 
 const handleShopperDeleted = () => {
   fetchShoppers()
-}
-
-const loadMore = async () => {
-  if (!hasMore.value || loading.value) return
-  await fetchPage()
 }
 
 onMounted(async () => {
