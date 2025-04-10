@@ -532,41 +532,66 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
-const handleSaveQRCode = () => {
+const handleSaveQRCode = async () => {
   try {
     isLoading.value = true
     errorMessage.value = null
 
-    // Get the QR code image element
-    const qrImage = document.querySelector('img[alt="QR Code ชำระเงิน"]') as HTMLImageElement
-    if (!qrImage) {
-      throw new Error('ไม่พบ QR Code')
+    // Make sure partnerAccount is a string and not an object
+    const accountNumber = String(partnerAccount.value).trim()
+    if (!accountNumber) {
+      throw new Error('ไม่พบข้อมูลบัญชีพร้อมเพย์')
     }
 
-    // Create a canvas element
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (!context) {
-      throw new Error('ไม่สามารถสร้าง canvas ได้')
-    }
-
-    // Set canvas dimensions to match the image
-    canvas.width = qrImage.naturalWidth
-    canvas.height = qrImage.naturalHeight
-
-    // Draw the image onto the canvas
-    context.drawImage(qrImage, 0, 0)
-
-    // For mobile devices, try to use the native share API first
-    if (navigator.share) {
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          throw new Error('ไม่สามารถสร้างไฟล์ได้')
-        }
-
+    // Create the QR code URL
+    const qrCodeUrl = `https://promptpay.io/${accountNumber}/${amount}.png`
+    console.log('QR code URL:', qrCodeUrl)
+    
+    // Create a temporary image element to load the QR code
+    const img = new Image()
+    img.crossOrigin = 'anonymous' // Try to enable CORS
+    
+    // Set up a promise to handle the image loading
+    const imageLoadPromise = new Promise<HTMLImageElement>((resolve, reject) => {
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('ไม่สามารถโหลด QR Code ได้'))
+    })
+    
+    // Set the image source
+    img.src = qrCodeUrl
+    
+    try {
+      // Wait for the image to load
+      const loadedImg = await imageLoadPromise
+      
+      // Create a canvas to draw the image
+      const canvas = document.createElement('canvas')
+      canvas.width = loadedImg.width
+      canvas.height = loadedImg.height
+      
+      // Draw the image on the canvas
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        throw new Error('ไม่สามารถสร้าง canvas ได้')
+      }
+      
+      ctx.drawImage(loadedImg, 0, 0)
+      
+      // Convert canvas to data URL
+      const dataUrl = canvas.toDataURL('image/png')
+      
+      // Save to localStorage
+      localStorage.setItem(`qrCode_${partnerId}_${amount}`, dataUrl)
+      
+      // For mobile devices, try to use the native share API first
+      if (navigator.share) {
         try {
+          // Convert data URL to blob
+          const response = await fetch(dataUrl)
+          const blob = await response.blob()
+          
           // Create a File object from the blob
-          const file = new File([blob], `${partnerId}.png`, { type: 'image/png' })
+          const file = new File([blob], `qrCode_${partnerId}_${amount}.png`, { type: 'image/png' })
           
           // Try to use the native share API
           await navigator.share({
@@ -575,34 +600,35 @@ const handleSaveQRCode = () => {
             text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`
           })
         } catch (shareError) {
+          console.log('Share API failed, falling back to download:', shareError)
           // If sharing fails, fall back to download method
-          
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement('a')
-          link.href = url
-          link.download = `${partnerId}.png`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(url)
+          downloadQRCodeFromDataUrl(dataUrl)
         }
-      }, 'image/png')
-    } else {
-      // For desktop or browsers without share API, use the download method
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          throw new Error('ไม่สามารถสร้างไฟล์ได้')
+      } else {
+        // For desktop or browsers without share API, use the download method
+        downloadQRCodeFromDataUrl(dataUrl)
+      }
+    } catch (imgError) {
+      console.error('Error loading image:', imgError)
+      
+      // Fallback to the original approach if image loading fails
+      if (navigator.share) {
+        try {
+          // Try to use the native share API with the URL
+          await navigator.share({
+            title: 'QR Code ชำระเงิน',
+            text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`,
+            url: qrCodeUrl
+          })
+        } catch (shareError) {
+          console.log('Share API failed, falling back to download:', shareError)
+          // If sharing fails, fall back to download method
+          openQRCodeInNewTab(qrCodeUrl)
         }
-
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `${partnerId}.png`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-      }, 'image/png')
+      } else {
+        // For desktop or browsers without share API, use the download method
+        openQRCodeInNewTab(qrCodeUrl)
+      }
     }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึก QR Code'
@@ -610,6 +636,64 @@ const handleSaveQRCode = () => {
   } finally {
     isLoading.value = false
   }
+}
+
+// Helper function to download QR code from data URL
+const downloadQRCodeFromDataUrl = (dataUrl: string) => {
+  // Create a temporary link element
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = `qrCode_${partnerId}_${amount}.png`
+  
+  // Append to body, click, and remove
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// Helper function to open QR code in a new tab
+const openQRCodeInNewTab = (url: string) => {
+  // Open in a new tab
+  window.open(url, '_blank')
+  
+  // Show a message to the user
+  const toast = document.createElement('div')
+  toast.className = 'fixed bottom-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm z-50 border border-gray-200'
+  toast.innerHTML = `
+    <div class="flex items-start">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <div class="ml-3">
+        <p class="text-sm font-medium text-gray-900">QR Code เปิดในแท็บใหม่</p>
+        <p class="mt-1 text-sm text-gray-500">กรุณาคลิกขวาที่รูปภาพและเลือก "บันทึกภาพเป็น..." เพื่อบันทึก QR Code</p>
+      </div>
+      <div class="ml-4 flex-shrink-0 flex">
+        <button class="inline-flex text-gray-400 hover:text-gray-500">
+          <span class="sr-only">ปิด</span>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(toast)
+  
+  // Add click handler to close button
+  const closeButton = toast.querySelector('button')
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      toast.remove()
+    })
+  }
+  
+  // Auto remove after 10 seconds
+  setTimeout(() => {
+    toast.remove()
+  }, 10000)
 }
 
 const handleRetry = () => {
