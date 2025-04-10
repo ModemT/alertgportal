@@ -41,7 +41,7 @@ const isPartnerLoading = ref<boolean>(true)
 
 // Fetch shopper details if account is provided
 const fetchShopperByAccount = async () => {
-  if (!shopperAccount.value) return
+  if (!shopperAccount.value) return false
 
   try {
     const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}`, {
@@ -53,7 +53,7 @@ const fetchShopperByAccount = async () => {
     })
 
     if (!response.ok) {
-      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+      return false
     }
 
     const data = await response.json()
@@ -61,13 +61,12 @@ const fetchShopperByAccount = async () => {
       const shopper = data.shoppers[0]
       shopperId.value = shopper.id
       shopperAccount.value = shopper.account
-    } else {
-      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+      return true
     }
+    return false
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
-    throw err
+    return false
   }
 }
 
@@ -83,20 +82,19 @@ const fetchShopperById = async (id: string) => {
     })
 
     if (!response.ok) {
-      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+      return false
     }
 
     const data = await response.json()
     if (data.shoppers && data.shoppers.length > 0) {
       const shopper = data.shoppers[0]
       shopperAccount.value = shopper.account
-    } else {
-      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
+      return true
     }
+    return false
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
-    throw err
+    return false
   }
 }
 
@@ -429,37 +427,26 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-// Update onMounted to fetch partner info
+// Update onMounted to handle the flow properly
 onMounted(async () => {
   try {
     errorMessage.value = null // Clear any existing error messages
+    isPartnerLoading.value = true
+    
     // Fetch partner information first
     await fetchPartnerInfo()
     
-    // If we have a shopper account but no ID, try to fetch the shopper details first
+    let shopperFound = false
+    
+    // Try to fetch shopper information if we have either account or ID
     if (shopperAccount.value && !shopperId.value) {
-      try {
-        await fetchShopperByAccount()
-      } catch (err) {
-        // If shopper not found, show error and return early
-        errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
-        return
-      }
+      shopperFound = await fetchShopperByAccount()
+    } else if (shopperId.value && !shopperAccount.value) {
+      shopperFound = await fetchShopperById(shopperId.value)
     }
-    
-    // If we have a shopper ID but no account, try to fetch the shopper details
-    if (shopperId.value && !shopperAccount.value) {
-      try {
-        await fetchShopperById(shopperId.value)
-      } catch (err) {
-        // If shopper not found, show error and return early
-        errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
-        return
-      }
-    }
-    
-    // Only validate after trying to fetch shopper information
-    if (!shopperId.value && !shopperAccount.value) {
+
+    // Only show error if we couldn't find the shopper
+    if (!shopperFound) {
       errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
       return
     }
@@ -495,6 +482,8 @@ onMounted(async () => {
   } catch (error) {
     console.error('Error in initialization:', error)
     errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+  } finally {
+    isPartnerLoading.value = false
   }
 })
 
