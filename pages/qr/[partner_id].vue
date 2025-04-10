@@ -2,6 +2,8 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRuntimeConfig } from '#app'
+import generatePayload from 'promptpay-qr'
+import QRCode from 'qrcode'
 
 // Add interface at the top of the file after imports
 interface Charge {
@@ -38,6 +40,7 @@ const showQRCode = ref<boolean>(false)
 const timeLeft = ref<number>(Number(config.public.qrCodeTimeout || 20) * 60) // Use environment variable or default to 20 minutes
 const timerInterval = ref<number | null>(null)
 const isPartnerLoading = ref<boolean>(true)
+const qrCodeDataUrl = ref<string>('')
 
 // Fetch shopper details if account is provided
 const fetchShopperByAccount = async () => {
@@ -430,7 +433,30 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-// Add initializeFlow function to handle retries properly
+// Add a function to generate the QR code
+const generateQRCode = async () => {
+  try {
+    if (!partnerAccount.value) return
+    
+    // Generate the QR code payload using the promptpay-qr library
+    const payload = generatePayload(partnerAccount.value, { amount: amount }) // Convert amount from satang to baht
+    
+    // Generate QR code locally using the qrcode library
+    qrCodeDataUrl.value = await QRCode.toDataURL(payload, {
+      width: 300,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    })
+    
+  } catch (err) {
+    console.error('Error generating QR code:', err)
+  }
+}
+
+// Update initializeFlow to generate QR code after partner info is fetched
 const initializeFlow = async () => {
   
   errorMessage.value = null
@@ -446,6 +472,8 @@ const initializeFlow = async () => {
       return
     }
     
+    // Generate QR code after partner info is fetched
+    await generateQRCode()
 
     // Step 2: Handle shopper information
     
@@ -532,6 +560,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
+// Update handleSaveQRCode to use the already generated QR code
 const handleSaveQRCode = async () => {
   try {
     isLoading.value = true
@@ -543,92 +572,38 @@ const handleSaveQRCode = async () => {
       throw new Error('ไม่พบข้อมูลบัญชีพร้อมเพย์')
     }
 
-    // Create the QR code URL
-    const qrCodeUrl = `https://promptpay.io/${accountNumber}/${amount}.png`
-    console.log('QR code URL:', qrCodeUrl)
+    // Use the already generated QR code
+    if (!qrCodeDataUrl.value) {
+      throw new Error('ไม่พบ QR Code')
+    }
     
-    // Create a temporary image element to load the QR code
-    const img = new Image()
-    img.crossOrigin = 'anonymous' // Try to enable CORS
+    // Save to localStorage
+    localStorage.setItem(`qrCode_${partnerId}_${amount}`, qrCodeDataUrl.value)
     
-    // Set up a promise to handle the image loading
-    const imageLoadPromise = new Promise<HTMLImageElement>((resolve, reject) => {
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('ไม่สามารถโหลด QR Code ได้'))
-    })
-    
-    // Set the image source
-    img.src = qrCodeUrl
-    
-    try {
-      // Wait for the image to load
-      const loadedImg = await imageLoadPromise
-      
-      // Create a canvas to draw the image
-      const canvas = document.createElement('canvas')
-      canvas.width = loadedImg.width
-      canvas.height = loadedImg.height
-      
-      // Draw the image on the canvas
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        throw new Error('ไม่สามารถสร้าง canvas ได้')
+    // For mobile devices, try to use the native share API first
+    if (navigator.share) {
+      try {
+        // Convert data URL to blob
+        const response = await fetch(qrCodeDataUrl.value)
+        const blob = await response.blob()
+        
+        // Create a File object from the blob
+        const file = new File([blob], `qrCode_${partnerId}_${amount}.png`, { type: 'image/png' })
+        
+        // Try to use the native share API
+        await navigator.share({
+          files: [file],
+          title: 'QR Code ชำระเงิน',
+          text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`
+        })
+      } catch (shareError) {
+        console.log('Share API failed, falling back to download:', shareError)
+        // If sharing fails, fall back to download method
+        downloadQRCodeFromDataUrl(qrCodeDataUrl.value)
       }
-      
-      ctx.drawImage(loadedImg, 0, 0)
-      
-      // Convert canvas to data URL
-      const dataUrl = canvas.toDataURL('image/png')
-      
-      // Save to localStorage
-      localStorage.setItem(`qrCode_${partnerId}_${amount}`, dataUrl)
-      
-      // For mobile devices, try to use the native share API first
-      if (navigator.share) {
-        try {
-          // Convert data URL to blob
-          const response = await fetch(dataUrl)
-          const blob = await response.blob()
-          
-          // Create a File object from the blob
-          const file = new File([blob], `qrCode_${partnerId}_${amount}.png`, { type: 'image/png' })
-          
-          // Try to use the native share API
-          await navigator.share({
-            files: [file],
-            title: 'QR Code ชำระเงิน',
-            text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`
-          })
-        } catch (shareError) {
-          console.log('Share API failed, falling back to download:', shareError)
-          // If sharing fails, fall back to download method
-          downloadQRCodeFromDataUrl(dataUrl)
-        }
-      } else {
-        // For desktop or browsers without share API, use the download method
-        downloadQRCodeFromDataUrl(dataUrl)
-      }
-    } catch (imgError) {
-      console.error('Error loading image:', imgError)
-      
-      // Fallback to the original approach if image loading fails
-      if (navigator.share) {
-        try {
-          // Try to use the native share API with the URL
-          await navigator.share({
-            title: 'QR Code ชำระเงิน',
-            text: `QR Code สำหรับชำระเงิน ${amount} ${currency}`,
-            url: qrCodeUrl
-          })
-        } catch (shareError) {
-          console.log('Share API failed, falling back to download:', shareError)
-          // If sharing fails, fall back to download method
-          openQRCodeInNewTab(qrCodeUrl)
-        }
-      } else {
-        // For desktop or browsers without share API, use the download method
-        openQRCodeInNewTab(qrCodeUrl)
-      }
+    } else {
+      // For desktop or browsers without share API, use the download method
+      downloadQRCodeFromDataUrl(qrCodeDataUrl.value)
     }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึก QR Code'
@@ -727,7 +702,7 @@ const handleCancel = () => {
     <div v-else-if="errorMessage !== null" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
       <div class="mb-6">
         <svg class="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
       </div>
       <h1 class="text-2xl font-bold text-gray-900 mb-4">ข้อผิดพลาด</h1>
@@ -747,7 +722,7 @@ const handleCancel = () => {
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
           <div class="aspect-square">
             <img
-              :src="`https://promptpay.io/${partnerAccount}/${amount}.png`"
+              :src="qrCodeDataUrl"
               alt="QR Code ชำระเงิน"
               class="w-full h-full object-contain"
             />
@@ -847,7 +822,7 @@ const handleCancel = () => {
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
             <div class="aspect-square">
               <img
-                :src="`https://promptpay.io/${partnerAccount}/${amount}.png`"
+                :src="qrCodeDataUrl"
                 alt="QR Code ชำระเงิน"
                 class="w-full h-full object-contain"
               />
