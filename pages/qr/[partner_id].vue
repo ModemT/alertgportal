@@ -34,7 +34,7 @@ const chargeDescription = ref<string>('')
 const previousDescription = ref<string>('')
 const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
-const timeLeft = ref<number>(45 * 60) // 45 minutes in seconds
+const timeLeft = ref<number>(Number(config.public.qrCodeTimeout || 20) * 60) // Use environment variable or default to 20 minutes
 const timerInterval = ref<number | null>(null)
 
 // Validate that either shopper_id or shopper_account is provided

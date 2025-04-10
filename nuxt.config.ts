@@ -26,7 +26,8 @@ export default defineNuxtConfig({
   // Add runtime config
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE_URL || "https://aspera.railway.internal"
+      apiBase: process.env.NUXT_PUBLIC_API_BASE_URL || "https://aspera.railway.internal",
+      qrCodeTimeout: Number(process.env.NUXT_PUBLIC_QR_CODE_TIMEOUT) || 20
     }
   },
 
