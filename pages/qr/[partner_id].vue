@@ -25,6 +25,7 @@ const amount = Number(route.query.amount) || 10000 // Default to 10000 if not pr
 const currency = (route.query.currency as string) || 'THB' // Default to THB if not provided
 const shopperAccount = ref<string>((route.query.shopper_account as string) || '')
 const shopperId = ref<string>((route.query.shopper_id as string) || '')
+const partnerAccount = ref<string>('')
 
 const isLoading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
@@ -100,6 +101,28 @@ const fetchShopperById = async (id: string) => {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลผู้ซื้อ'
     console.error('Error fetching shopper:', err)
     throw err
+  }
+}
+
+// Add function to fetch partner information
+const fetchPartnerInfo = async () => {
+  try {
+    const response = await fetch(`${apiBase}/partners/limited`, {
+      headers: {
+        'accept': 'application/json',
+        'x-partner-id': partnerId
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('ไม่สามารถดึงข้อมูลพาร์ทเนอร์ได้')
+    }
+
+    const data = await response.json()
+    partnerAccount.value = data.account
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลพาร์ทเนอร์'
+    console.error('Error fetching partner info:', err)
   }
 }
 
@@ -411,9 +434,12 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-// Create charge and handle QR page setup when mounted
+// Update onMounted to fetch partner info
 onMounted(async () => {
   try {
+    // Fetch partner information first
+    await fetchPartnerInfo()
+    
     // First check for existing pending charge
     const hasExistingCharge = await checkExistingPendingCharge()
     console.log('hasExistingCharge: ', hasExistingCharge);
@@ -586,7 +612,7 @@ const handleCancel = () => {
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
           <div class="aspect-square">
             <img
-              :src="`/assets/image/qr_${partnerId}.png`"
+              :src="`https://promptpay.io/${partnerAccount}/${amount}.png`"
               alt="QR Code ชำระเงิน"
               class="w-full h-full object-contain"
             />
@@ -696,7 +722,7 @@ const handleCancel = () => {
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
             <div class="aspect-square">
               <img
-                :src="`/assets/image/qr_${partnerId}.png`"
+                :src="`https://promptpay.io/${partnerAccount}/${amount}.png`"
                 alt="QR Code ชำระเงิน"
                 class="w-full h-full object-contain"
               />
