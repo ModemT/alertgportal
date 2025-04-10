@@ -37,6 +37,7 @@ const statusCheckInterval = ref<number | null>(null)
 const showQRCode = ref<boolean>(false)
 const timeLeft = ref<number>(Number(config.public.qrCodeTimeout || 20) * 60) // Use environment variable or default to 20 minutes
 const timerInterval = ref<number | null>(null)
+const isPartnerLoading = ref<boolean>(true)
 
 // Validate that either shopper_id or shopper_account is provided
 if (!shopperId.value && !shopperAccount.value) {
@@ -104,9 +105,12 @@ const fetchShopperById = async (id: string) => {
   }
 }
 
-// Add function to fetch partner information
+// Update fetchPartnerInfo function
 const fetchPartnerInfo = async () => {
   try {
+    isPartnerLoading.value = true
+    errorMessage.value = null
+    
     const response = await fetch(`${apiBase}/partners/limited`, {
       headers: {
         'accept': 'application/json',
@@ -119,10 +123,16 @@ const fetchPartnerInfo = async () => {
     }
 
     const data = await response.json()
+    if (!data.account) {
+      throw new Error('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')
+    }
     partnerAccount.value = data.account
+    showQRCode.value = true
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลพาร์ทเนอร์'
     console.error('Error fetching partner info:', err)
+  } finally {
+    isPartnerLoading.value = false
   }
 }
 
@@ -591,7 +601,20 @@ const handleCancel = () => {
 
 <template>
   <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-4 px-3 md:py-8 md:px-4">
-    <div v-if="errorMessage !== null" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
+    <!-- Loading State -->
+    <div v-if="isPartnerLoading" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
+      <div class="mb-6">
+        <svg class="animate-spin mx-auto h-12 w-12 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-gray-900 mb-4">กำลังโหลด</h1>
+      <p class="text-gray-600">กรุณารอสักครู่...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="errorMessage !== null" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 text-center transform transition-all duration-300 hover:shadow-2xl">
       <div class="mb-6">
         <svg class="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -600,15 +623,17 @@ const handleCancel = () => {
       <h1 class="text-2xl font-bold text-gray-900 mb-4">ข้อผิดพลาด</h1>
       <p class="text-gray-600 mb-6">{{ errorMessage }}</p>
       <button
-        @click="handleRetry"
+        @click="fetchPartnerInfo"
         class="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
       >
         ลองใหม่อีกครั้ง
       </button>
     </div>
+
+    <!-- Main Content -->
     <div v-else class="max-w-5xl mx-auto">
       <!-- Mobile QR Code View (Shows first on mobile) -->
-      <div v-if="chargeStatus === 'pending'" class="md:hidden mb-4">
+      <div v-if="chargeStatus === 'pending' && showQRCode" class="md:hidden mb-4">
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
           <div class="aspect-square">
             <img
@@ -718,7 +743,7 @@ const handleCancel = () => {
         </div>
 
         <!-- Right Column: QR Code (Desktop) -->
-        <div v-if="chargeStatus === 'pending'" class="hidden md:block md:sticky md:top-8">
+        <div v-if="chargeStatus === 'pending' && showQRCode" class="hidden md:block md:sticky md:top-8">
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
             <div class="aspect-square">
               <img
