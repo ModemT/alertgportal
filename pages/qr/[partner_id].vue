@@ -41,7 +41,10 @@ const isPartnerLoading = ref<boolean>(true)
 
 // Fetch shopper details if account is provided
 const fetchShopperByAccount = async () => {
-  if (!shopperAccount.value) return false
+  if (!shopperAccount.value) {
+    
+    return false
+  }
 
   try {
     const response = await fetch(`${apiBase}/shoppers/account/${shopperAccount.value}`, {
@@ -52,26 +55,41 @@ const fetchShopperByAccount = async () => {
       }
     })
 
+    
+    const data = await response.json()
+    
+
     if (!response.ok) {
+      
       return false
     }
 
-    const data = await response.json()
-    if (data.shoppers && data.shoppers.length > 0) {
+    // Check if data is directly the shopper object
+    if (data.account) {
+      
+      shopperId.value = data.id
+      shopperAccount.value = data.account
+      return true
+    }
+    // Check if data is in shoppers array
+    else if (data.shoppers && data.shoppers.length > 0) {
       const shopper = data.shoppers[0]
+      
       shopperId.value = shopper.id
       shopperAccount.value = shopper.account
       return true
     }
+    
     return false
   } catch (err) {
-    console.error('Error fetching shopper:', err)
+    console.error('Error fetching shopper by account:', err)
     return false
   }
 }
 
 // Fetch shopper details by ID
 const fetchShopperById = async (id: string) => {
+  
   try {
     const response = await fetch(`${apiBase}/shoppers/${id}`, {
       headers: {
@@ -81,29 +99,33 @@ const fetchShopperById = async (id: string) => {
       }
     })
 
+    
+    const data = await response.json()
+    
+
     if (!response.ok) {
+      
       return false
     }
 
-    const data = await response.json()
     if (data.shoppers && data.shoppers.length > 0) {
       const shopper = data.shoppers[0]
+      
       shopperAccount.value = shopper.account
       return true
     }
+    
     return false
   } catch (err) {
-    console.error('Error fetching shopper:', err)
+    console.error('Error fetching shopper by ID:', err)
     return false
   }
 }
 
-// Update fetchPartnerInfo function
+// Update fetchPartnerInfo function to just fetch data
 const fetchPartnerInfo = async () => {
+  
   try {
-    isPartnerLoading.value = true
-    errorMessage.value = null
-    
     const response = await fetch(`${apiBase}/partners/limited`, {
       headers: {
         'accept': 'application/json',
@@ -111,21 +133,25 @@ const fetchPartnerInfo = async () => {
       }
     })
 
+    
+    const data = await response.json()
+    
+
     if (!response.ok) {
-      throw new Error('ไม่สามารถดึงข้อมูลพาร์ทเนอร์ได้')
+      
+      return false
     }
 
-    const data = await response.json()
     if (!data.account) {
-      throw new Error('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')
+      
+      return false
     }
+    
     partnerAccount.value = data.account
-    showQRCode.value = true
+    return true
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการดึงข้อมูลพาร์ทเนอร์'
     console.error('Error fetching partner info:', err)
-  } finally {
-    isPartnerLoading.value = false
+    return false
   }
 }
 
@@ -235,7 +261,7 @@ const cancelCharge = async (id: string) => {
     }
 
     const data = await response.json()
-    console.log('Charge cancelled successfully:', data)
+    
     // Stop the timer when charge is cancelled
     if (timerInterval.value) {
       clearInterval(timerInterval.value)
@@ -259,7 +285,7 @@ const checkExistingPendingCharge = async () => {
 
     // If we still don't have either shopper_id or account, we can't check for charges
     if (!shopperId.value && !shopperAccount.value) {
-      console.log('No shopper information available')
+      
       return false
     }
 
@@ -288,9 +314,9 @@ const checkExistingPendingCharge = async () => {
     }
 
     data = await response.json()
-    console.log('data: ', data);
-    console.log('shopperAccount: ', shopperAccount.value);
-    console.log('shopperId: ', shopperId.value);
+    
+    
+    
     
     if (data.charges && data.charges.length > 0) {
       // Find any pending charge with matching amount and currency
@@ -299,19 +325,10 @@ const checkExistingPendingCharge = async () => {
           Number(charge.amount) === Number(amount) && 
           charge.currency === currency &&
           (charge.shopper_id === shopperId.value || !shopperId.value);
-        console.log('Checking charge:', {
-          id: charge.id,
-          status: charge.status,
-          amount: Number(charge.amount),
-          targetAmount: Number(amount),
-          currency: charge.currency,
-          shopper_id: charge.shopper_id,
-          targetShopperId: shopperId.value,
-          matches
-        });
+
         return matches;
       });
-      console.log('matchingCharge: ', matchingCharge);
+      
 
       if (matchingCharge) {
         chargeId.value = matchingCharge.id
@@ -329,26 +346,11 @@ const checkExistingPendingCharge = async () => {
   }
 }
 
+// Update createCharge to handle both shopper_id and account cases
 const createCharge = async () => {
   try {
     isLoading.value = true
     errorMessage.value = null
-
-    // If only shopper_account is provided, make sure we have fetched the shopper_id
-    if (!shopperId.value && shopperAccount.value) {
-      await fetchShopperByAccount()
-    }
-
-    if (!shopperId.value) {
-      throw new Error('ไม่พบข้อมูลผู้ซื้อ')
-    }
-
-    // Check for existing pending charge first
-    const hasExistingCharge = await checkExistingPendingCharge()
-    if (hasExistingCharge) {
-      isLoading.value = false
-      return
-    }
 
     const response = await fetch(`${apiBase}/charges`, {
       method: 'POST',
@@ -368,7 +370,7 @@ const createCharge = async () => {
 
     if (!response.ok) {
       const errorData = await response.json()
-      throw new Error(errorData.detail || 'ไม่สามารถสร้างการชำระเงินได้')
+      return false
     }
 
     const data = await response.json()
@@ -378,9 +380,10 @@ const createCharge = async () => {
     previousDescription.value = data.description
     // Start checking status
     startStatusCheck(data.id)
+    return true
   } catch (err) {
-    errorMessage.value = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการสร้างการชำระเงิน'
     console.error('Charge creation error:', err)
+    return false
   } finally {
     isLoading.value = false
   }
@@ -427,44 +430,70 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-// Update onMounted to handle the flow properly
-onMounted(async () => {
+// Add initializeFlow function to handle retries properly
+const initializeFlow = async () => {
+  
+  errorMessage.value = null
+  isPartnerLoading.value = true
+  
   try {
-    errorMessage.value = null // Clear any existing error messages
-    isPartnerLoading.value = true
+    // Step 1: Fetch partner information
     
-    // Fetch partner information first
-    await fetchPartnerInfo()
-    
-    let shopperFound = false
-    
-    // Try to fetch shopper information if we have either account or ID
-    if (shopperAccount.value && !shopperId.value) {
-      shopperFound = await fetchShopperByAccount()
-    } else if (shopperId.value && !shopperAccount.value) {
-      shopperFound = await fetchShopperById(shopperId.value)
-    }
-
-    // Only show error if we couldn't find the shopper
-    if (!shopperFound) {
+    const partnerFound = await fetchPartnerInfo()
+    if (!partnerFound) {
+      
       errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
       return
     }
     
-    // Now check for existing pending charge
-    const hasExistingCharge = await checkExistingPendingCharge()
-    console.log('hasExistingCharge: ', hasExistingCharge);
+
+    // Step 2: Handle shopper information
     
-    // Only proceed with charge creation if we don't have an existing charge
-    if (!hasExistingCharge) {
-      // Only proceed with charge creation if we have valid shopper details
-      if (shopperId.value) {
-        await createCharge()
-      }
+    let shopperFound = false
+    
+    // If we have a shopper account, try to get shopper ID
+    if (shopperAccount.value) {
+      
+      shopperFound = await fetchShopperByAccount()
+    }
+    // If we have shopper ID but no account, get the account
+    else if (shopperId.value) {
+      
+      shopperFound = await fetchShopperById(shopperId.value)
+    }
+
+    // If we couldn't find shopper info, show error
+    if (!shopperFound) {
+      
+      errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+      return
     }
     
-    // Start the timer if we have a valid charge (either existing or new)
+
+    // Step 3: Check for existing charges
+    
+    const hasExistingCharge = await checkExistingPendingCharge()
+    
+    
+    // Step 4: Create new charge if needed
+    if (!hasExistingCharge) {
+      
+      const chargeCreated = await createCharge()
+      if (!chargeCreated) {
+        
+        errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
+        return
+      }
+      
+    }
+
+    // Step 5: Show QR code if everything is successful
+    
+    showQRCode.value = true
+    
+    // Step 6: Start timer if we have a charge
     if (chargeId.value) {
+      
       timerInterval.value = window.setInterval(() => {
         if (timeLeft.value > 0) {
           timeLeft.value--
@@ -485,6 +514,11 @@ onMounted(async () => {
   } finally {
     isPartnerLoading.value = false
   }
+}
+
+// Update onMounted to use initializeFlow
+onMounted(async () => {
+  await initializeFlow()
 })
 
 // Cleanup when component is unmounted
@@ -542,7 +576,7 @@ const handleSaveQRCode = () => {
           })
         } catch (shareError) {
           // If sharing fails, fall back to download method
-          console.log('Share API failed, falling back to download:', shareError)
+          
           const url = URL.createObjectURL(blob)
           const link = document.createElement('a')
           link.href = url
@@ -579,7 +613,7 @@ const handleSaveQRCode = () => {
 }
 
 const handleRetry = () => {
-  createCharge()
+  initializeFlow()
 }
 
 const handleCancel = () => {
@@ -615,7 +649,7 @@ const handleCancel = () => {
       <h1 class="text-2xl font-bold text-gray-900 mb-4">ข้อผิดพลาด</h1>
       <p class="text-gray-600 mb-6">{{ errorMessage }}</p>
       <button
-        @click="fetchPartnerInfo"
+        @click="initializeFlow"
         class="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
       >
         ลองใหม่อีกครั้ง
