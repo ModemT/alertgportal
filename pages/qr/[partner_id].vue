@@ -39,11 +39,6 @@ const timeLeft = ref<number>(Number(config.public.qrCodeTimeout || 20) * 60) // 
 const timerInterval = ref<number | null>(null)
 const isPartnerLoading = ref<boolean>(true)
 
-// Validate that either shopper_id or shopper_account is provided
-if (!shopperId.value && !shopperAccount.value) {
-  errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
-}
-
 // Fetch shopper details if account is provided
 const fetchShopperByAccount = async () => {
   if (!shopperAccount.value) return
@@ -437,6 +432,7 @@ const formatTime = (seconds: number) => {
 // Update onMounted to fetch partner info
 onMounted(async () => {
   try {
+    errorMessage.value = null // Clear any existing error messages
     // Fetch partner information first
     await fetchPartnerInfo()
     
@@ -446,7 +442,7 @@ onMounted(async () => {
         await fetchShopperByAccount()
       } catch (err) {
         // If shopper not found, show error and return early
-        errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบเลขบัญชีผู้ซื้อ'
+        errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
         return
       }
     }
@@ -457,14 +453,14 @@ onMounted(async () => {
         await fetchShopperById(shopperId.value)
       } catch (err) {
         // If shopper not found, show error and return early
-        errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบรหัสผู้ซื้อ'
+        errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
         return
       }
     }
     
-    // Validate that we have either shopper_id or shopper_account
+    // Only validate after trying to fetch shopper information
     if (!shopperId.value && !shopperAccount.value) {
-      errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
+      errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
       return
     }
     
@@ -498,7 +494,7 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('Error in initialization:', error)
-    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มต้น กรุณาลองใหม่อีกครั้ง'
+    errorMessage.value = 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง'
   }
 })
 
