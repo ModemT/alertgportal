@@ -264,16 +264,6 @@ const checkExistingPendingCharge = async () => {
     let response;
     let data;
 
-    // If we have shopper account but no ID, try to fetch shopper details first
-    if (shopperAccount.value && !shopperId.value) {
-      try {
-        await fetchShopperByAccount()
-      } catch (err) {
-        console.error('Error fetching shopper by account:', err)
-        return false
-      }
-    }
-
     // If we still don't have either shopper_id or account, we can't check for charges
     if (!shopperId.value && !shopperAccount.value) {
       console.log('No shopper information available')
@@ -315,7 +305,7 @@ const checkExistingPendingCharge = async () => {
         const matches = charge.status === 'pending' && 
           Number(charge.amount) === Number(amount) && 
           charge.currency === currency &&
-          charge.shopper_id === shopperId.value;
+          (charge.shopper_id === shopperId.value || !shopperId.value);
         console.log('Checking charge:', {
           id: charge.id,
           status: charge.status,
@@ -450,23 +440,40 @@ onMounted(async () => {
     // Fetch partner information first
     await fetchPartnerInfo()
     
-    // First check for existing pending charge
+    // If we have a shopper account but no ID, try to fetch the shopper details first
+    if (shopperAccount.value && !shopperId.value) {
+      try {
+        await fetchShopperByAccount()
+      } catch (err) {
+        // If shopper not found, show error and return early
+        errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบเลขบัญชีผู้ซื้อ'
+        return
+      }
+    }
+    
+    // If we have a shopper ID but no account, try to fetch the shopper details
+    if (shopperId.value && !shopperAccount.value) {
+      try {
+        await fetchShopperById(shopperId.value)
+      } catch (err) {
+        // If shopper not found, show error and return early
+        errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบรหัสผู้ซื้อ'
+        return
+      }
+    }
+    
+    // Validate that we have either shopper_id or shopper_account
+    if (!shopperId.value && !shopperAccount.value) {
+      errorMessage.value = 'กรุณาระบุรหัสผู้ซื้อหรือเลขบัญชีผู้ซื้อ'
+      return
+    }
+    
+    // Now check for existing pending charge
     const hasExistingCharge = await checkExistingPendingCharge()
     console.log('hasExistingCharge: ', hasExistingCharge);
     
     // Only proceed with charge creation if we don't have an existing charge
     if (!hasExistingCharge) {
-      // If we have a shopper account but no ID, try to fetch the shopper details
-      if (shopperAccount.value && !shopperId.value) {
-        try {
-          await fetchShopperByAccount()
-        } catch (err) {
-          // If shopper not found, show error and return early
-          errorMessage.value = 'ไม่พบข้อมูลผู้ซื้อ กรุณาตรวจสอบเลขบัญชีผู้ซื้อ'
-          return
-        }
-      }
-      
       // Only proceed with charge creation if we have valid shopper details
       if (shopperId.value) {
         await createCharge()
