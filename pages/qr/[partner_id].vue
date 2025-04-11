@@ -441,7 +441,7 @@ const generateQRCode = async () => {
     if (!partnerAccount.value) return
     
     // Generate the QR code payload using the promptpay-qr library
-    const payload = generatePayload(partnerAccount.value, { amount: amount / 100 }) // Convert amount from satang to baht
+    const payload = generatePayload(partnerAccount.value, { amount: amount }) 
     
     // Generate QR code locally using the qrcode library with smaller size
     qrCodeDataUrl.value = await QRCode.toDataURL(payload, {
