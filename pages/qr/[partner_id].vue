@@ -28,6 +28,7 @@ const currency = (route.query.currency as string) || 'THB' // Default to THB if 
 const shopperAccount = ref<string>((route.query.shopper_account as string) || '')
 const shopperId = ref<string>((route.query.shopper_id as string) || '')
 const partnerAccount = ref<string>('')
+const partnerName = ref<string>('')
 
 const isLoading = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
@@ -125,7 +126,7 @@ const fetchShopperById = async (id: string) => {
   }
 }
 
-// Update fetchPartnerInfo function to just fetch data
+// Update fetchPartnerInfo function to also fetch partner name
 const fetchPartnerInfo = async () => {
   
   try {
@@ -151,6 +152,7 @@ const fetchPartnerInfo = async () => {
     }
     
     partnerAccount.value = data.account
+    partnerName.value = data.name || 'ร้านค้า'
     return true
   } catch (err) {
     console.error('Error fetching partner info:', err)
@@ -433,17 +435,17 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
 }
 
-// Add a function to generate the QR code
+// Update the generateQRCode function to create a smaller QR code
 const generateQRCode = async () => {
   try {
     if (!partnerAccount.value) return
     
     // Generate the QR code payload using the promptpay-qr library
-    const payload = generatePayload(partnerAccount.value, { amount: amount }) // Convert amount from satang to baht
+    const payload = generatePayload(partnerAccount.value, { amount: amount / 100 }) // Convert amount from satang to baht
     
-    // Generate QR code locally using the qrcode library
+    // Generate QR code locally using the qrcode library with smaller size
     qrCodeDataUrl.value = await QRCode.toDataURL(payload, {
-      width: 300,
+      width: 250, // Reduced from 300
       margin: 1,
       color: {
         dark: '#000000',
@@ -451,6 +453,7 @@ const generateQRCode = async () => {
       }
     })
     
+    console.log('QR code generated locally')
   } catch (err) {
     console.error('Error generating QR code:', err)
   }
@@ -720,7 +723,7 @@ const handleCancel = () => {
       <!-- Mobile QR Code View (Shows first on mobile) -->
       <div v-if="chargeStatus === 'pending' && showQRCode" class="md:hidden mb-4">
         <div class="bg-white rounded-2xl shadow-xl p-3 transform transition-all duration-300 hover:shadow-2xl">
-          <div class="aspect-square">
+          <div class="aspect-square max-w-[250px] mx-auto">
             <img
               :src="qrCodeDataUrl"
               alt="QR Code ชำระเงิน"
@@ -750,6 +753,10 @@ const handleCancel = () => {
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
                   <span class="text-gray-600">เลขที่บัญชีลูกค้า:</span>
                   <span class="font-medium text-gray-800">{{ shopperAccount || 'รอดำเนินการ' }}</span>
+                </div>
+                <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
+                  <span class="text-gray-600">ชื่อร้านค้า:</span>
+                  <span class="font-medium text-gray-800">{{ partnerName }}</span>
                 </div>
                 <div class="flex justify-between items-center p-2 md:p-2.5 bg-gray-50 rounded-xl text-xs md:text-sm">
                   <span class="text-gray-600">พร้อมเพย์ร้านค้า:</span>
@@ -820,7 +827,7 @@ const handleCancel = () => {
         <!-- Right Column: QR Code (Desktop) -->
         <div v-if="chargeStatus === 'pending' && showQRCode" class="hidden md:block md:sticky md:top-8">
           <div class="bg-white rounded-2xl shadow-xl p-4 transform transition-all duration-300 hover:shadow-2xl">
-            <div class="aspect-square">
+            <div class="aspect-square max-w-[250px] mx-auto">
               <img
                 :src="qrCodeDataUrl"
                 alt="QR Code ชำระเงิน"
