@@ -26,10 +26,10 @@
               <div class="ml-5 w-0 flex-1">
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">รายได้ทั้งหมด</dt>
-                  <dd class="flex items-baseline">
+                  <dd class="flex flex-col">
                     <div class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.totalRevenue) }}</div>
                     <div :class="[
-                      'ml-2 flex items-baseline text-sm font-semibold',
+                      'mt-1 flex items-baseline text-sm font-semibold',
                       stats.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
                     ]">
                       <svg v-if="stats.revenueChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
@@ -60,10 +60,10 @@
               <div class="ml-5 w-0 flex-1">
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">ลูกค้าทั้งหมด</dt>
-                  <dd class="flex items-baseline">
+                  <dd class="flex flex-col">
                     <div class="text-2xl font-semibold text-gray-900">{{ stats.totalCustomers }}</div>
                     <div :class="[
-                      'ml-2 flex items-baseline text-sm font-semibold',
+                      'mt-1 flex items-baseline text-sm font-semibold',
                       stats.customerChange >= 0 ? 'text-green-600' : 'text-red-600'
                     ]">
                       <svg v-if="stats.customerChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
@@ -94,10 +94,10 @@
               <div class="ml-5 w-0 flex-1">
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">ยอดรอดำเนินการ</dt>
-                  <dd class="flex items-baseline">
+                  <dd class="flex flex-col">
                     <div class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.pendingAmount) }}</div>
                     <div :class="[
-                      'ml-2 flex items-baseline text-sm font-semibold',
+                      'mt-1 flex items-baseline text-sm font-semibold',
                       stats.pendingChange >= 0 ? 'text-yellow-600' : 'text-green-600'
                     ]">
                       <svg v-if="stats.pendingChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
