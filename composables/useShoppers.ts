@@ -133,7 +133,8 @@ export const useShoppers = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create shopper')
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to create shopper')
       }
 
       return await response.json()
