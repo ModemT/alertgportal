@@ -51,7 +51,12 @@ export const useShoppers = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shoppers')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shoppers')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shoppers')
+        }
       }
 
       const data = await response.json()
@@ -82,7 +87,12 @@ export const useShoppers = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shopper details')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shopper details')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shopper details')
+        }
       }
 
       return await response.json()
@@ -106,7 +116,12 @@ export const useShoppers = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shopper details')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shopper details')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shopper details')
+        }
       }
 
       return await response.json()
@@ -134,7 +149,11 @@ export const useShoppers = () => {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to create shopper')
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to create shopper')
+        } else {
+          throw new Error(errorData.detail || 'Failed to create shopper')
+        }
       }
 
       return await response.json()
@@ -162,7 +181,11 @@ export const useShoppers = () => {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to update shopper')
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to update shopper')
+        } else {
+          throw new Error(errorData.detail || 'Failed to update shopper')
+        }
       }
 
       return await response.json()
@@ -187,7 +210,12 @@ export const useShoppers = () => {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete shopper')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to delete shopper')
+        } else {
+          throw new Error(errorData.detail || 'Failed to delete shopper')
+        }
       }
 
       return true

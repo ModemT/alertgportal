@@ -66,7 +66,12 @@ export function useShopperDetails() {
       )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shopper details')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shopper details')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shopper details')
+        }
       }
 
       const data = await response.json()
@@ -103,7 +108,12 @@ export function useShopperDetails() {
       )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shopper charges')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shopper charges')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shopper charges')
+        }
       }
 
       const data = await response.json()
@@ -144,7 +154,11 @@ export function useShopperDetails() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to create refund')
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to create refund')
+        } else {
+          throw new Error(errorData.detail || 'Failed to create refund')
+        }
       }
 
       const data = await response.json()

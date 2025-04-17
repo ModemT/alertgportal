@@ -43,7 +43,12 @@ export const useShopperCharges = () => {
       )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch shopper charges')
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to fetch shopper charges')
+        } else {
+          throw new Error(errorData.detail || 'Failed to fetch shopper charges')
+        }
       }
 
       const data = await response.json()
