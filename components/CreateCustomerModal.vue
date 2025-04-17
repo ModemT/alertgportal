@@ -16,7 +16,8 @@
                   <input
                     type="text"
                     id="name"
-                    v-model="form.name"
+                    :value="form.name"
+                    @input="(e) => handleInputChange('name', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -26,7 +27,8 @@
                   <input
                     type="text"
                     id="thai_name"
-                    v-model="form.thai_name"
+                    :value="form.thai_name"
+                    @input="(e) => handleInputChange('thai_name', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -36,7 +38,8 @@
                   <input
                     type="email"
                     id="email"
-                    v-model="form.email"
+                    :value="form.email"
+                    @input="(e) => handleInputChange('email', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -46,7 +49,8 @@
                   <input
                     type="tel"
                     id="phone"
-                    v-model="form.phone"
+                    :value="form.phone"
+                    @input="(e) => handleInputChange('phone', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -56,7 +60,8 @@
                   <input
                     type="text"
                     id="account"
-                    v-model="form.account"
+                    :value="form.account"
+                    @input="(e) => handleInputChange('account', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
@@ -66,7 +71,8 @@
                   <input
                     type="text"
                     id="bank"
-                    v-model="form.bank"
+                    :value="form.bank"
+                    @input="(e) => handleInputChange('bank', (e.target as HTMLInputElement).value)"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                     required
                   />
