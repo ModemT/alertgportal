@@ -1,5 +1,5 @@
 <template>
-  <Modal :is-open="isOpen" @close="handleClose" size="md">
+  <Modal :is-open="isOpen" @close="handleClose" size="default">
     <template #header>
       <h3 class="text-lg font-medium leading-6 text-gray-900">{{ isWithdrawal ? 'ถอนเงิน' : 'คืนเงิน' }}</h3>
     </template>
@@ -40,7 +40,8 @@
                 type="number"
                 name="amount"
                 id="amount"
-                v-model="amount"
+                :value="amount"
+                @input="handleAmountChange"
                 class="focus:ring-primary-500 focus:border-primary-500 block w-full pl-12 pr-12 sm:text-sm border-gray-300 rounded-md"
                 :max="isWithdrawal ? undefined : charge?.amount"
                 step="0.01"
@@ -121,6 +122,19 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const amount = ref(0)
 const description = ref('')
+
+// Add input sanitization function
+const sanitizeAmount = (value: string): number => {
+  // Remove any whitespace and convert to number
+  const sanitized = value.toString().replace(/\s/g, '')
+  return parseFloat(sanitized) || 0
+}
+
+// Add input handler
+const handleAmountChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  amount.value = sanitizeAmount(input.value)
+}
 
 const isWithdrawal = computed(() => !props.charge?.id)
 

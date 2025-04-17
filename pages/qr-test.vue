@@ -21,6 +21,19 @@ const isDropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const formSubmitted = ref(false)
 
+// Add input sanitization function
+const sanitizeAmount = (value: string): number => {
+  // Remove any whitespace and convert to number
+  const sanitized = value.toString().replace(/\s/g, '')
+  return parseFloat(sanitized) || 0
+}
+
+// Add input handler
+const handleAmountChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  amount.value = sanitizeAmount(input.value)
+}
+
 // Fetch user profile to get partner ID
 const fetchUserProfile = async () => {
   try {
@@ -106,7 +119,8 @@ onUnmounted(() => {
           <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">จำนวนเงิน</label>
           <input
             id="amount"
-            v-model="amount"
+            :value="amount"
+            @input="handleAmountChange"
             type="number"
             class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required

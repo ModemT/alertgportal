@@ -18,7 +18,8 @@
                       <input
                         type="text"
                         id="name"
-                        v-model="form.name"
+                        :value="form.name"
+                        @input="(e) => handleInputChange('name', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                       />
                     </div>
@@ -27,7 +28,8 @@
                       <input
                         type="text"
                         id="thai_name"
-                        v-model="form.thai_name"
+                        :value="form.thai_name"
+                        @input="(e) => handleInputChange('thai_name', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                       />
                     </div>
@@ -36,7 +38,8 @@
                       <input
                         type="email"
                         id="email"
-                        v-model="form.email"
+                        :value="form.email"
+                        @input="(e) => handleInputChange('email', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
                       />
                     </div>
@@ -45,7 +48,8 @@
                       <input
                         type="text"
                         id="phone"
-                        v-model="form.phone"
+                        :value="form.phone"
+                        @input="(e) => handleInputChange('phone', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                     </div>
@@ -54,7 +58,8 @@
                       <input
                         type="text"
                         id="account"
-                        v-model="form.account"
+                        :value="form.account"
+                        @input="(e) => handleInputChange('account', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                     </div>
@@ -63,7 +68,8 @@
                       <input
                         type="text"
                         id="bank"
-                        v-model="form.bank"
+                        :value="form.bank"
+                        @input="(e) => handleInputChange('bank', (e.target as HTMLInputElement).value)"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                       />
                     </div>
@@ -203,10 +209,29 @@ const originalData = ref<ShopperForm>({
   bank: ''
 })
 
+// Add input validation functions
+const sanitizeInput = (value: string, allowSpaces: boolean = false): string => {
+  if (allowSpaces) {
+    return value.trim()
+  }
+  return value.replace(/\s/g, '')
+}
+
+const handleInputChange = (field: keyof ShopperForm, value: string) => {
+  // Only allow spaces in name and thai_name fields
+  const allowSpaces = field === 'name' || field === 'thai_name'
+  form.value[field] = sanitizeInput(value, allowSpaces)
+}
+
 onMounted(() => {
   if (props.shopper) {
-    form.value = { ...props.shopper }
-    originalData.value = { ...props.shopper }
+    // Initialize form with sanitized values
+    Object.keys(props.shopper).forEach((key) => {
+      const typedKey = key as keyof ShopperForm
+      const allowSpaces = typedKey === 'name' || typedKey === 'thai_name'
+      form.value[typedKey] = sanitizeInput(props.shopper[typedKey], allowSpaces)
+      originalData.value[typedKey] = form.value[typedKey]
+    })
   }
 })
 

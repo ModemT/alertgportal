@@ -96,7 +96,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useShoppers } from '~/composables/useShoppers'
 
@@ -112,7 +112,17 @@ const emit = defineEmits(['close'])
 const { createShopper } = useShoppers()
 
 const loading = ref(false)
-const form = ref({
+
+interface ShopperForm {
+  name: string
+  thai_name: string
+  email: string
+  phone: string
+  account: string
+  bank: string
+}
+
+const form = ref<ShopperForm>({
   name: '',
   thai_name: '',
   email: '',
@@ -121,21 +131,35 @@ const form = ref({
   bank: ''
 })
 
+// Add input validation functions
+const sanitizeInput = (value: string, allowSpaces: boolean = false): string => {
+  if (allowSpaces) {
+    return value.trim()
+  }
+  return value.replace(/\s/g, '')
+}
+
+const handleInputChange = (field: keyof ShopperForm, value: string) => {
+  // Only allow spaces in name and thai_name fields
+  const allowSpaces = field === 'name' || field === 'thai_name'
+  form.value[field] = sanitizeInput(value, allowSpaces)
+}
+
 const handleSubmit = async () => {
   try {
     loading.value = true
     await createShopper(form.value)
     emit('close')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating customer:', error)
     
     // Extract error message from the response
     let errorMessage = 'เกิดข้อผิดพลาดในการสร้างลูกค้า'
     
     // Check if error has a response with detail property
-    if (error.response && error.response.detail) {
+    if (error?.response?.detail) {
       errorMessage = error.response.detail
-    } else if (error.detail) {
+    } else if (error?.detail) {
       errorMessage = error.detail
     } else if (error instanceof Error) {
       errorMessage = error.message
