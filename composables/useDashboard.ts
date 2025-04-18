@@ -110,8 +110,18 @@ export const useDashboard = () => {
       const shoppers = shoppersResult.data
 
       // Calculate total revenue from shopper's total_completed_charges
-      stats.value.totalRevenue = shoppers.reduce((sum, shopper) => {
-        return sum + Number(shopper.total_completed_charges?.THB || 0)
+      const currentDate = new Date()
+      const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
+
+      // Calculate current month revenue from charges
+      stats.value.totalRevenue = charges.reduce((sum, charge) => {
+        const chargeDate = new Date(charge.created_at)
+        if (charge.status === 'completed' && chargeDate >= currentMonth && chargeDate < nextMonth) {
+          return sum + Number(charge.amount || 0)
+        }
+        return sum
       }, 0)
 
       // Calculate pending amount from charges
@@ -129,11 +139,6 @@ export const useDashboard = () => {
       stats.value.totalCustomers = shoppers.length
 
       // Calculate changes by comparing with previous month
-      const currentDate = new Date()
-      const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-
       const currentMonthShoppers = shoppers.filter(shopper => {
         const shopperDate = new Date(shopper.created_at)
         return shopperDate >= currentMonth && shopperDate < nextMonth
@@ -144,14 +149,32 @@ export const useDashboard = () => {
         return shopperDate >= previousMonth && shopperDate < currentMonth
       })
 
-      // Calculate current month revenue from current month shoppers
-      const currentMonthRevenue = currentMonthShoppers.reduce((sum, shopper) => {
-        return sum + Number(shopper.total_completed_charges?.THB || 0)
+      // Calculate current month charges
+      const currentMonthCharges = charges.filter(charge => {
+        const chargeDate = new Date(charge.created_at)
+        return chargeDate >= currentMonth && chargeDate < nextMonth
+      })
+
+      // Calculate previous month charges
+      const previousMonthCharges = charges.filter(charge => {
+        const chargeDate = new Date(charge.created_at)
+        return chargeDate >= previousMonth && chargeDate < currentMonth
+      })
+
+      // Calculate current month revenue from current month charges
+      const currentMonthRevenue = currentMonthCharges.reduce((sum, charge) => {
+        if (charge.status === 'completed') {
+          return sum + Number(charge.amount || 0)
+        }
+        return sum
       }, 0)
 
-      // Calculate previous month revenue from previous month shoppers
-      const previousMonthRevenue = previousMonthShoppers.reduce((sum, shopper) => {
-        return sum + Number(shopper.total_completed_charges?.THB || 0)
+      // Calculate previous month revenue from previous month charges
+      const previousMonthRevenue = previousMonthCharges.reduce((sum, charge) => {
+        if (charge.status === 'completed') {
+          return sum + Number(charge.amount || 0)
+        }
+        return sum
       }, 0)
 
       // Calculate revenue change with proper handling of edge cases
@@ -163,17 +186,6 @@ export const useDashboard = () => {
       stats.value.customerChange = previousMonthShoppers.length === 0
         ? (currentMonthShoppers.length > 0 ? 100 : 0) // If previous was 0, show 100% if current has customers
         : ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
-
-      // Filter charges by month for pending amount calculations
-      const currentMonthCharges = charges.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= currentMonth && chargeDate < nextMonth
-      })
-
-      const previousMonthCharges = charges.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= previousMonth && chargeDate < currentMonth
-      })
 
       // Calculate pending amount change
       const currentMonthPending = currentMonthCharges.reduce((sum, charge) => {
