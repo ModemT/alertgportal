@@ -119,7 +119,10 @@ export const useDashboard = () => {
       stats.value.totalRevenue = charges.reduce((sum, charge) => {
         const chargeDate = new Date(charge.created_at)
         if (charge.status === 'completed' && chargeDate >= currentMonth && chargeDate < nextMonth) {
-          return sum + Number(charge.amount || 0)
+          const totalPaymentValue = Number(charge.amount) +
+            (Number(charge.charge_metadata?.fee || 0)) +
+            (Number(charge.charge_metadata?.tax || 0))
+          return sum + totalPaymentValue
         }
         return sum
       }, 0)
@@ -164,7 +167,10 @@ export const useDashboard = () => {
       // Calculate current month revenue from current month charges
       const currentMonthRevenue = currentMonthCharges.reduce((sum, charge) => {
         if (charge.status === 'completed') {
-          return sum + Number(charge.amount || 0)
+          const totalPaymentValue = Number(charge.amount) +
+            (Number(charge.charge_metadata?.fee || 0)) +
+            (Number(charge.charge_metadata?.tax || 0))
+          return sum + totalPaymentValue
         }
         return sum
       }, 0)
@@ -172,7 +178,10 @@ export const useDashboard = () => {
       // Calculate previous month revenue from previous month charges
       const previousMonthRevenue = previousMonthCharges.reduce((sum, charge) => {
         if (charge.status === 'completed') {
-          return sum + Number(charge.amount || 0)
+          const totalPaymentValue = Number(charge.amount) +
+            (Number(charge.charge_metadata?.fee || 0)) +
+            (Number(charge.charge_metadata?.tax || 0))
+          return sum + totalPaymentValue
         }
         return sum
       }, 0)

@@ -105,14 +105,20 @@ const initChart = async () => {
 
       const revenue = monthCharges.reduce((sum, charge) => {
         if (charge.status === 'completed') {
-          return sum + Number(charge.amount || 0)
+          const totalPaymentValue = Number(charge.amount) +
+            (Number(charge.charge_metadata?.fee || 0)) +
+            (Number(charge.charge_metadata?.tax || 0))
+          return sum + totalPaymentValue
         }
         return sum
       }, 0)
 
       const expenses = monthCharges.reduce((sum, charge) => {
         if (charge.status === 'refunded') {
-          return sum + Number(charge.amount || 0)
+          const totalPaymentValue = Number(charge.amount) +
+            (Number(charge.charge_metadata?.fee || 0)) +
+            (Number(charge.charge_metadata?.tax || 0))
+          return sum + totalPaymentValue
         }
         return sum
       }, 0)
