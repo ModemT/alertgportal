@@ -13,7 +13,7 @@
 
     <div v-else>
       <!-- Stats Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <!-- Total Revenue -->
         <div class="bg-white overflow-hidden shadow rounded-lg">
           <div class="p-5">
@@ -25,23 +25,8 @@
               </div>
               <div class="ml-5 w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">รายได้ทั้งหมด</dt>
-                  <dd class="flex flex-col">
-                    <div class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.totalRevenue) }}</div>
-                    <div :class="[
-                      'mt-1 flex items-baseline text-sm font-semibold',
-                      stats.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'
-                    ]">
-                      <svg v-if="stats.revenueChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <svg v-else class="self-center flex-shrink-0 h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <span class="sr-only">{{ stats.revenueChange >= 0 ? 'เพิ่มขึ้น' : 'ลดลง' }}</span>
-                      {{ Math.abs(stats.revenueChange).toFixed(1) }}%
-                    </div>
-                  </dd>
+                  <dt class="text-sm font-medium text-gray-500 truncate">รายได้เดือนนี้</dt>
+                  <dd class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.totalAmountCurrentMonth) }}</dd>
                 </dl>
               </div>
             </div>
@@ -60,22 +45,7 @@
               <div class="ml-5 w-0 flex-1">
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">ลูกค้าทั้งหมด</dt>
-                  <dd class="flex flex-col">
-                    <div class="text-2xl font-semibold text-gray-900">{{ stats.totalCustomers }}</div>
-                    <div :class="[
-                      'mt-1 flex items-baseline text-sm font-semibold',
-                      stats.customerChange >= 0 ? 'text-green-600' : 'text-red-600'
-                    ]">
-                      <svg v-if="stats.customerChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <svg v-else class="self-center flex-shrink-0 h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <span class="sr-only">{{ stats.customerChange >= 0 ? 'เพิ่มขึ้น' : 'ลดลง' }}</span>
-                      {{ Math.abs(stats.customerChange).toFixed(1) }}%
-                    </div>
-                  </dd>
+                  <dd class="text-2xl font-semibold text-gray-900">{{ stats.totalCustomers }}</dd>
                 </dl>
               </div>
             </div>
@@ -94,22 +64,26 @@
               <div class="ml-5 w-0 flex-1">
                 <dl>
                   <dt class="text-sm font-medium text-gray-500 truncate">ยอดรอดำเนินการ</dt>
-                  <dd class="flex flex-col">
-                    <div class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.pendingAmount) }}</div>
-                    <div :class="[
-                      'mt-1 flex items-baseline text-sm font-semibold',
-                      stats.pendingChange >= 0 ? 'text-yellow-600' : 'text-green-600'
-                    ]">
-                      <svg v-if="stats.pendingChange >= 0" class="self-center flex-shrink-0 h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <svg v-else class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                      </svg>
-                      <span class="sr-only">{{ stats.pendingChange >= 0 ? 'เพิ่มขึ้น' : 'ลดลง' }}</span>
-                      {{ Math.abs(stats.pendingChange).toFixed(1) }}%
-                    </div>
-                  </dd>
+                  <dd class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.pendingAmountCurrentMonth) }}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Refunded Amount -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+          <div class="p-5">
+            <div class="flex items-center">
+              <div class="flex-shrink-0 bg-red-100 rounded-md p-3">
+                <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                </svg>
+              </div>
+              <div class="ml-5 w-0 flex-1">
+                <dl>
+                  <dt class="text-sm font-medium text-gray-500 truncate">ยอดคืนเงินเดือนนี้</dt>
+                  <dd class="text-2xl font-semibold text-gray-900">฿{{ formatCurrency(stats.refundedAmountCurrentMonth) }}</dd>
                 </dl>
               </div>
             </div>
@@ -121,7 +95,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
         <div class="bg-white shadow rounded-lg p-4">
           <h3 class="text-lg font-medium text-gray-900 mb-4">รายได้รายเดือน</h3>
-          <RevenueChart />
+          <RevenueChart :stats="stats" />
         </div>
         <div class="bg-white shadow rounded-lg p-4">
           <h3 class="text-lg font-medium text-gray-900 mb-4">วิธีการชำระเงิน</h3>
@@ -183,15 +157,16 @@ import { useAuth } from '~/composables/useAuth'
 import { useDashboard } from '~/composables/useDashboard'
 import RevenueChart from '~/components/RevenueChart.vue'
 import PaymentMethodsChart from '~/components/PaymentMethodsChart.vue'
+import { navigateTo } from '#app'
 
 const { isAuthenticated, checkAuth } = useAuth()
 const { stats, recentTransactions, loading, error, fetchDashboardData, startPolling, stopPolling } = useDashboard()
 
-const formatCurrency = (value: number): string => {
+const formatCurrency = (value: string): string => {
   return new Intl.NumberFormat('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(value)
+  }).format(parseFloat(value))
 }
 
 const getStatusClass = (status: string): string => {

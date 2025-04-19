@@ -17,20 +17,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import Chart from 'chart.js/auto'
 import { useCharges } from '~/composables/useCharges'
 import type { Charge, PaginatedResponse } from '~/composables/useCharges'
 
 interface MonthlyData {
   month: string
-  revenue: number
-  expenses: number
+  completed_amount: string
+  refunded_amount: string
+}
+
+interface DashboardStats {
+  totalAmountCurrentMonth: string
+  totalCustomers: number
+  pendingAmountCurrentMonth: string
+  refundedAmountCurrentMonth: string
+  monthlyData: MonthlyData[]
 }
 
 const chartRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
 const { fetchCharges } = useCharges()
+const props = defineProps<{
+  stats: DashboardStats
+}>()
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -46,87 +57,20 @@ const getThaiMonth = (date: Date) => {
 // Create or update chart
 const initChart = async () => {
   if (!chartRef.value) return
-  
+  console.log('initChart', props.stats)
   try {
     loading.value = true
     error.value = null
 
-    // Fetch charges for the last 6 months only
-    const endDate = new Date()
-    const startDate = new Date()
-    startDate.setMonth(startDate.getMonth() - 5) // Get last 6 months
-    startDate.setDate(1) // Start from first day of month
-    startDate.setHours(0, 0, 0, 0)
-
-    // Fetch all charges for the last 6 months
-    const allCharges: Charge[] = []
-    let cursor: string | undefined = undefined
-    let hasMore = true
-    
-    while (hasMore) {
-      const result = await fetchCharges({
-        cursor,
-        limit: 100
-      })
-      
-      // Filter charges by date range
-      const filteredCharges = result.data.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= startDate && chargeDate <= endDate
-      })
-      
-      allCharges.push(...filteredCharges)
-      cursor = result.next_cursor || undefined
-      hasMore = result.has_more && cursor !== undefined
-    }
-
-    // Group charges by month
-    const chargesByMonth = new Map<string, Charge[]>()
-    allCharges.forEach(charge => {
-      const date = new Date(charge.created_at)
-      const monthKey = `${date.getFullYear()}-${date.getMonth()}`
-      if (!chargesByMonth.has(monthKey)) {
-        chargesByMonth.set(monthKey, [])
-      }
-      chargesByMonth.get(monthKey)?.push(charge)
-    })
-
-    // Get last 6 months
-    const months: Date[] = []
-    for (let i = 5; i >= 0; i--) {
-      const month = new Date(endDate.getFullYear(), endDate.getMonth() - i, 1)
-      months.push(month)
-    }
-
-    // Calculate revenue and expenses for each month
-    const monthlyData: MonthlyData[] = months.map(month => {
-      const monthKey = `${month.getFullYear()}-${month.getMonth()}`
-      const monthCharges = chargesByMonth.get(monthKey) || []
-
-      const revenue = monthCharges.reduce((sum, charge) => {
-        if (charge.status === 'completed') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      const expenses = monthCharges.reduce((sum, charge) => {
-        if (charge.status === 'refunded') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
+    // Use the monthly data from stats
+    const monthlyData = props.stats.monthlyData.map(data => {
+      // Convert YYYY-MM to Date object to get Thai month name
+      const [year, month] = data.month.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1)
       return {
-        month: getThaiMonth(month),
-        revenue,
-        expenses
+        month: getThaiMonth(date),
+        revenue: Number(data.completed_amount),
+        expenses: Number(data.refunded_amount)
       }
     })
 
@@ -237,6 +181,11 @@ const initChart = async () => {
     loading.value = false
   }
 }
+
+// Watch for changes in stats
+watch(() => props.stats, () => {
+  initChart()
+}, { deep: true })
 
 // Handle window resize
 const handleResize = () => {

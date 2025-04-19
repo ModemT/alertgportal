@@ -3,13 +3,19 @@ import { useRuntimeConfig } from '#app'
 import type { Charge } from './useCharges'
 import type { Shopper } from './useShoppers'
 
-interface DashboardStats {
-  totalRevenue: number
+export interface MonthlyData {
+  month: string
+  completed_amount: string
+  refunded_amount: string
+}
+
+export interface DashboardStats {
   totalCustomers: number
-  pendingAmount: number
-  revenueChange: number
-  customerChange: number
-  pendingChange: number
+  totalAmountCurrentMonth: string
+  refundedAmountCurrentMonth: string
+  pendingAmountCurrentMonth: string
+  date: string
+  monthlyData: MonthlyData[]
 }
 
 interface RecentTransaction {
@@ -35,12 +41,12 @@ export const useDashboard = () => {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase as string
   const stats = ref<DashboardStats>({
-    totalRevenue: 0,
     totalCustomers: 0,
-    pendingAmount: 0,
-    revenueChange: 0,
-    customerChange: 0,
-    pendingChange: 0
+    totalAmountCurrentMonth: "0.00",
+    refundedAmountCurrentMonth: "0.00",
+    pendingAmountCurrentMonth: "0.00",
+    date: new Date().toISOString(),
+    monthlyData: []
   })
   const recentTransactions = ref<RecentTransaction[]>([])
   const loading = ref(false)
@@ -100,134 +106,50 @@ export const useDashboard = () => {
       loading.value = true
       error.value = null
 
-      // Fetch initial data
+      console.log('Fetching dashboard data from:', `${apiBase}/report/${new Date().toISOString()}`)
+
+      const response = await fetch(
+        `${apiBase}/report/${new Date().toISOString()}`,
+        {
+          headers: {
+            'accept': 'application/json',
+            'access-token': localStorage.getItem('token') || '',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data')
+      }
+
+      const data = await response.json()
+      console.log('Received dashboard data:', data)
+
+      // Ensure monthly_data is an array and has the correct format
+      const monthlyData = Array.isArray(data.monthly_data) ? data.monthly_data.map((item: { month: string; completed_amount?: string; refunded_amount?: string }) => ({
+        month: item.month,
+        completed_amount: item.completed_amount || "0.00",
+        refunded_amount: item.refunded_amount || "0.00"
+      })) : []
+
+      stats.value = {
+        totalCustomers: data.total_customers || 0,
+        totalAmountCurrentMonth: data.total_amount_current_month || "0.00",
+        refundedAmountCurrentMonth: data.refunded_amount_current_month || "0.00",
+        pendingAmountCurrentMonth: data.pending_amount_current_month || "0.00",
+        date: data.date || new Date().toISOString(),
+        monthlyData
+      }
+      console.log('Updated stats value:', stats.value)
+
+      // Get recent transactions with shopper details
       const [chargesResult, shoppersResult] = await Promise.all([
-        fetchCharges(undefined, 100),
+        fetchCharges(undefined, 5),
         fetchShoppers(undefined, 100)
       ])
 
-      const charges = chargesResult.data
+      const recentCharges = chargesResult.data
       const shoppers = shoppersResult.data
-
-      // Calculate total revenue from shopper's total_completed_charges
-      const currentDate = new Date()
-      const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-      const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-
-      // Calculate current month revenue from charges
-      stats.value.totalRevenue = charges.reduce((sum, charge) => {
-        const chargeDate = new Date(charge.created_at)
-        if (charge.status === 'completed' && chargeDate >= currentMonth && chargeDate < nextMonth) {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      // Calculate pending amount from charges
-      stats.value.pendingAmount = charges.reduce((sum, charge) => {
-        if (charge.status === 'pending') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      // Set total customers
-      stats.value.totalCustomers = shoppers.length
-
-      // Calculate changes by comparing with previous month
-      const currentMonthShoppers = shoppers.filter(shopper => {
-        const shopperDate = new Date(shopper.created_at)
-        return shopperDate >= currentMonth && shopperDate < nextMonth
-      })
-
-      const previousMonthShoppers = shoppers.filter(shopper => {
-        const shopperDate = new Date(shopper.created_at)
-        return shopperDate >= previousMonth && shopperDate < currentMonth
-      })
-
-      // Calculate current month charges
-      const currentMonthCharges = charges.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= currentMonth && chargeDate < nextMonth
-      })
-
-      // Calculate previous month charges
-      const previousMonthCharges = charges.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= previousMonth && chargeDate < currentMonth
-      })
-
-      // Calculate current month revenue from current month charges
-      const currentMonthRevenue = currentMonthCharges.reduce((sum, charge) => {
-        if (charge.status === 'completed') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      // Calculate previous month revenue from previous month charges
-      const previousMonthRevenue = previousMonthCharges.reduce((sum, charge) => {
-        if (charge.status === 'completed') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      // Calculate revenue change with proper handling of edge cases
-      stats.value.revenueChange = previousMonthRevenue === 0 
-        ? (currentMonthRevenue > 0 ? 100 : 0) // If previous was 0, show 100% if current has revenue
-        : ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100
-
-      // Calculate customer growth with proper handling of edge cases
-      stats.value.customerChange = previousMonthShoppers.length === 0
-        ? (currentMonthShoppers.length > 0 ? 100 : 0) // If previous was 0, show 100% if current has customers
-        : ((currentMonthShoppers.length - previousMonthShoppers.length) / previousMonthShoppers.length) * 100
-
-      // Calculate pending amount change
-      const currentMonthPending = currentMonthCharges.reduce((sum, charge) => {
-        if (charge.status === 'pending') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      const previousMonthPending = previousMonthCharges.reduce((sum, charge) => {
-        if (charge.status === 'pending') {
-          const totalPaymentValue = Number(charge.amount) +
-            (Number(charge.charge_metadata?.fee || 0)) +
-            (Number(charge.charge_metadata?.tax || 0))
-          return sum + totalPaymentValue
-        }
-        return sum
-      }, 0)
-
-      // Calculate pending change with proper handling of edge cases
-      stats.value.pendingChange = previousMonthPending === 0
-        ? (currentMonthPending > 0 ? 100 : 0) // If previous was 0, show 100% if current has pending
-        : ((currentMonthPending - previousMonthPending) / previousMonthPending) * 100
-
-      // Get recent transactions with shopper details
-      const recentCharges = charges
-        ? charges
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .slice(0, 5)
-        : []
 
       // Create a map of shopper IDs to shopper details for faster lookup
       const shopperMap = new Map(shoppers?.map(shopper => [shopper.id, shopper]) || [])
