@@ -110,7 +110,7 @@
         </div>
         <div class="bg-white shadow rounded-lg p-4">
           <h3 class="text-lg font-medium text-gray-900 mb-4">วิธีการชำระเงิน</h3>
-          <PaymentMethodsChart :charges="stats.latest_charges" />
+          <PaymentMethodsChart :payment_methods="stats.payment_methods" />
         </div>
       </div>
 

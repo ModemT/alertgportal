@@ -19,18 +19,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import Chart from 'chart.js/auto'
-import type { LatestCharge } from '~/composables/useDashboard'
+import type { PaymentMethod } from '~/composables/useDashboard'
 
 interface Props {
-  charges: LatestCharge[]
+  payment_methods: PaymentMethod[]
 }
 
 const props = defineProps<Props>()
-
-interface PaymentMethodStats {
-  method: string
-  percentage: number
-}
 
 const chartRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
@@ -48,29 +43,12 @@ const initChart = async () => {
     loading.value = true
     error.value = null
     
-    // Process payment methods data from props
-    const paymentMethods = props.charges.reduce<Record<string, number>>((acc, charge) => {
-      const method = charge.charge_metadata?.payment_details?.bank || 'พร้อมเพย์'
-      acc[method] = (acc[method] || 0) + 1
-      return acc
-    }, {})
-    
-    // Calculate percentages
-    const total = Object.values(paymentMethods).reduce((sum, count) => sum + count, 0)
-    const percentages: PaymentMethodStats[] = Object.entries(paymentMethods).map(([method, count]) => ({
-      method,
-      percentage: Math.round((count / total) * 100)
-    }))
-    
-    // Sort by percentage in descending order
-    percentages.sort((a, b) => b.percentage - a.percentage)
-    
     const data = {
-      labels: percentages.map(p => p.method),
+      labels: props.payment_methods.map(p => p.bank_name),
       datasets: [
         {
           label: 'วิธีการชำระเงิน',
-          data: percentages.map(p => p.percentage),
+          data: props.payment_methods.map(p => p.percentage),
           backgroundColor: [
             'rgba(9, 103, 210, 0.7)',
             'rgba(63, 145, 66, 0.7)',
@@ -121,7 +99,8 @@ const initChart = async () => {
               label: function(context) {
                 const label = context.label || ''
                 const value = context.raw as number
-                return `${label}: ${value}%`
+                const count = props.payment_methods[context.dataIndex].count
+                return `${label}: ${value}% (${count} รายการ)`
               }
             }
           }
@@ -136,8 +115,8 @@ const initChart = async () => {
   }
 }
 
-// Watch for changes in charges prop
-watch(() => props.charges, () => {
+// Watch for changes in payment_methods prop
+watch(() => props.payment_methods, () => {
   initChart()
 }, { deep: true })
 

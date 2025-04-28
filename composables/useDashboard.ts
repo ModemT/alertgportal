@@ -40,6 +40,12 @@ export interface ShopperStats {
   shopper_growth_percent: number
 }
 
+export interface PaymentMethod {
+  bank_name: string
+  count: number
+  percentage: number
+}
+
 export interface DashboardStats {
   totalCustomers: number
   totalAmountCurrentMonth: string
@@ -49,6 +55,7 @@ export interface DashboardStats {
   monthlyData: MonthlyData[]
   shoppers: ShopperStats
   latest_charges: LatestCharge[]
+  payment_methods: PaymentMethod[]
 }
 
 export const useDashboard = () => {
@@ -65,7 +72,8 @@ export const useDashboard = () => {
       total_shoppers: 0,
       shopper_growth_percent: 0
     },
-    latest_charges: []
+    latest_charges: [],
+    payment_methods: []
   })
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -113,7 +121,8 @@ export const useDashboard = () => {
           total_shoppers: data.shoppers?.total_shoppers || 0,
           shopper_growth_percent: data.shoppers?.shopper_growth_percent || 0
         },
-        latest_charges: data.latest_charges || []
+        latest_charges: data.latest_charges || [],
+        payment_methods: data.payment_methods || []
       }
       console.log('Updated stats value:', stats.value)
     } catch (err) {
