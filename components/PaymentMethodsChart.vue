@@ -17,10 +17,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import Chart from 'chart.js/auto'
-import { useCharges } from '~/composables/useCharges'
-import type { Charge, PaginatedResponse } from '~/composables/useCharges'
+import type { LatestCharge } from '~/composables/useDashboard'
+
+interface Props {
+  charges: LatestCharge[]
+}
+
+const props = defineProps<Props>()
 
 interface PaymentMethodStats {
   method: string
@@ -29,7 +34,6 @@ interface PaymentMethodStats {
 
 const chartRef = ref<HTMLCanvasElement | null>(null)
 let chart: Chart | null = null
-const { fetchCharges } = useCharges()
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -43,39 +47,10 @@ const initChart = async () => {
   try {
     loading.value = true
     error.value = null
-
-    // Fetch charges for the last 6 months only
-    const endDate = new Date()
-    const startDate = new Date()
-    startDate.setMonth(startDate.getMonth() - 5) // Get last 6 months
-    startDate.setDate(1) // Start from first day of month
-    startDate.setHours(0, 0, 0, 0)
-
-    // Fetch all charges for the last 6 months
-    const allCharges: Charge[] = []
-    let cursor: string | undefined = undefined
-    let hasMore = true
     
-    while (hasMore) {
-      const result = await fetchCharges({
-        cursor,
-        limit: 100
-      })
-      
-      // Filter charges by date range
-      const filteredCharges = result.data.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate >= startDate && chargeDate <= endDate
-      })
-      
-      allCharges.push(...filteredCharges)
-      cursor = result.next_cursor || undefined
-      hasMore = result.has_more && cursor !== undefined
-    }
-    
-    // Process payment methods data
-    const paymentMethods = allCharges.reduce<Record<string, number>>((acc, charge) => {
-      const method = charge.charge_metadata?.payment_method || 'พร้อมเพย์'
+    // Process payment methods data from props
+    const paymentMethods = props.charges.reduce<Record<string, number>>((acc, charge) => {
+      const method = charge.charge_metadata?.payment_details?.bank || 'พร้อมเพย์'
       acc[method] = (acc[method] || 0) + 1
       return acc
     }, {})
@@ -160,6 +135,11 @@ const initChart = async () => {
     loading.value = false
   }
 }
+
+// Watch for changes in charges prop
+watch(() => props.charges, () => {
+  initChart()
+}, { deep: true })
 
 // Handle window resize
 const handleResize = () => {

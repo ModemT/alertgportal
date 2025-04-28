@@ -33,7 +33,7 @@
           </div>
         </div>
 
-        <!-- Total Customers -->
+        <!-- Total Customers with Growth -->
         <div class="bg-white overflow-hidden shadow rounded-lg">
           <div class="p-5">
             <div class="flex items-center">
@@ -44,8 +44,19 @@
               </div>
               <div class="ml-5 w-0 flex-1">
                 <dl>
-                  <dt class="text-sm font-medium text-gray-500 truncate">ลูกค้าทั้งหมด</dt>
-                  <dd class="text-2xl font-semibold text-gray-900">{{ stats.totalCustomers }}</dd>
+                  <dt class="text-sm font-medium text-gray-500 truncate">จำนวนลูกค้า</dt>
+                  <dd class="flex items-baseline">
+                    <div class="text-2xl font-semibold text-gray-900">{{ stats.shoppers.total_shoppers }}</div>
+                    <div class="ml-2 flex items-baseline text-sm font-semibold" :class="stats.shoppers.shopper_growth_percent >= 0 ? 'text-green-600' : 'text-red-600'">
+                      <svg v-if="stats.shoppers.shopper_growth_percent >= 0" class="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                      </svg>
+                      <svg v-else class="self-center flex-shrink-0 h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                      </svg>
+                      <span class="ml-1">{{ Math.abs(stats.shoppers.shopper_growth_percent) }}%</span>
+                    </div>
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -99,49 +110,46 @@
         </div>
         <div class="bg-white shadow rounded-lg p-4">
           <h3 class="text-lg font-medium text-gray-900 mb-4">วิธีการชำระเงิน</h3>
-          <PaymentMethodsChart />
+          <PaymentMethodsChart :charges="stats.latest_charges" />
         </div>
       </div>
 
-      <!-- Recent Transactions -->
+      <!-- Latest Transactions -->
       <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
           <h3 class="text-lg font-medium text-gray-900">รายการล่าสุด</h3>
         </div>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
-            <thead>
+            <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ลูกค้า</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-                <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วิธีการชำระเงิน</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ธนาคาร</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="(transaction, index) in recentTransactions" :key="index">
-                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center">
-                    <div class="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
-                      {{ transaction.customer.initials }}
-                    </div>
-                    <div class="ml-3 sm:ml-4">
-                      <div class="text-sm font-medium text-gray-900">{{ transaction.customer.name }}</div>
-                      <div class="text-xs sm:text-sm text-gray-500">{{ transaction.customer.email }}</div>
-                    </div>
-                  </div>
+              <tr v-for="charge in stats.latest_charges" :key="charge.id">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ charge.description }}</div>
+                  <div class="text-sm text-gray-500">{{ charge.charge_metadata?.payment_details?.sender_name || 'N/A' }}</div>
                 </td>
-                <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ transaction.date }}</td>
-                <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                  {{ transaction.currency === 'THB' ? '฿' : '$' }}{{ transaction.amount }}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ new Date(charge.created_at).toLocaleDateString('th-TH') }}
                 </td>
-                <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                  <span :class="getStatusClass(transaction.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                    {{ getStatusLabel(transaction.status) }}
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ฿{{ formatCurrency(charge.amount) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusClass(charge.status)">
+                    {{ getStatusLabel(charge.status) }}
                   </span>
                 </td>
-                <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ transaction.method }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{ charge.charge_metadata?.payment_details?.bank || 'N/A' }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -160,7 +168,7 @@ import PaymentMethodsChart from '~/components/PaymentMethodsChart.vue'
 import { navigateTo } from '#app'
 
 const { isAuthenticated, checkAuth } = useAuth()
-const { stats, recentTransactions, loading, error, fetchDashboardData, startPolling, stopPolling } = useDashboard()
+const { stats, loading, error, fetchDashboardData, startPolling, stopPolling } = useDashboard()
 
 const formatCurrency = (value: string): string => {
   return new Intl.NumberFormat('th-TH', {
