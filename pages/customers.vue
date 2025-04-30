@@ -285,11 +285,11 @@ const updatePagination = () => {
 }
 
 // Watch filters to update pagination
-watch([statusFilter, timeFilter, searchQuery, startDate, endDate], () => {
+watch([statusFilter, timeFilter, startDate, endDate], () => {
   currentPage.value = 1 // Reset to first page when filters change
   nextCursor.value = null // Reset cursor when filters change
   shoppers.value = [] // Clear existing shoppers
-  fetchPage()
+  fetchPage() // Load initial data when filters change
 })
 
 // Watch for timeFilter changes to reset date range
@@ -495,15 +495,23 @@ const closeEditModal = () => {
 }
 
 const handleShopperUpdated = () => {
-  fetchShoppers()
+  if (searchQuery.value.trim()) {
+    searchShoppers(searchQuery.value.trim())
+  } else {
+    fetchPage()
+  }
 }
 
 const handleShopperDeleted = () => {
-  fetchShoppers()
+  if (searchQuery.value.trim()) {
+    searchShoppers(searchQuery.value.trim())
+  } else {
+    fetchPage()
+  }
 }
 
 onMounted(async () => {
-  await fetchPage()
+  await fetchPage() // Load initial data
 })
 
 onUnmounted(() => {
