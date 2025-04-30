@@ -52,8 +52,8 @@
             <input
               type="text"
               v-model="searchQuery"
-              @input="handleSearchInput"
-              placeholder="ค้นหาลูกค้า..."
+              @input="handleSearch"
+              placeholder="ค้นหาตาม ID, ชื่อ, อีเมล, หรือเบอร์โทร"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <div class="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -170,6 +170,7 @@
 
     <!-- Edit Customer Modal -->
     <EditCustomerModal
+      v-if="selectedShopper"
       :is-open="isEditModalOpen"
       :shopper-id="selectedShopperId"
       :shopper="selectedShopper"
@@ -188,7 +189,16 @@ import CreateCustomerModal from '~/components/CreateCustomerModal.vue'
 import EditCustomerModal from '~/components/EditCustomerModal.vue'
 import type { Shopper } from '~/composables/useShoppers'
 
-const { shoppers, loading, error, fetchShoppers } = useShoppers()
+interface EditModalShopper {
+  name: string
+  thai_name: string
+  email: string
+  phone: string
+  account: string
+  bank: string
+}
+
+const { shoppers, loading, error, fetchShoppers, searchShoppers } = useShoppers()
 
 const currentPage = ref(1)
 const itemsPerPage = ref(50)
@@ -198,7 +208,7 @@ const isModalOpen = ref(false)
 const selectedShopperId = ref('')
 const isCreateModalOpen = ref(false)
 const isEditModalOpen = ref(false)
-const selectedShopper = ref<Shopper | null>(null)
+const selectedShopper = ref<EditModalShopper | null>(null)
 const statusFilter = ref('')
 const timeFilter = ref('')
 const searchQuery = ref('')
@@ -207,6 +217,28 @@ const endDate = ref('')
 const isExporting = ref(false)
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
+
+// Update handleSearch to use debounce
+const searchTimeout = ref<NodeJS.Timeout | null>(null)
+
+const handleSearch = async () => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+
+  searchTimeout.value = setTimeout(async () => {
+    try {
+      if (searchQuery.value.trim()) {
+        await searchShoppers(searchQuery.value.trim())
+      } else {
+        await fetchShoppers()
+      }
+    } catch (err) {
+      console.error('Error searching shoppers:', err)
+      error.value = err instanceof Error ? err.message : 'Failed to search shoppers'
+    }
+  }, 300) // 300ms debounce
+}
 
 const filteredShoppers = computed(() => {
   if (!Array.isArray(shoppers.value)) {
@@ -242,17 +274,6 @@ const filteredShoppers = computed(() => {
     })
   }
 
-  // Filter by search query
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(shopper => 
-      shopper.name.toLowerCase().includes(query) ||
-      shopper.email.toLowerCase().includes(query) ||
-      shopper.phone.toLowerCase().includes(query) ||
-      shopper.account.toLowerCase().includes(query)
-    )
-  }
-
   return filtered
 })
 
@@ -261,12 +282,8 @@ const paginatedShoppers = computed(() => {
 })
 
 const handleScroll = (event: Event) => {
-  const target = event.target as HTMLElement
-  const scrollTop = target.scrollTop
-  startIndex.value = Math.floor(scrollTop / itemHeight)
-  
   // Load more data when approaching the end
-  if (startIndex.value + visibleItems.value >= filteredShoppers.value.length - 10) {
+  if (filteredShoppers.value.length >= shoppers.value.length - 10) {
     loadMore()
   }
 }
@@ -470,8 +487,15 @@ const closeCreateModal = () => {
   fetchPage() // Refresh the list after creating a new customer
 }
 
-const openEditModal = (customer: Shopper): void => {
-  selectedShopper.value = customer
+const openEditModal = (customer: Shopper) => {
+  selectedShopper.value = {
+    name: customer.name,
+    thai_name: customer.thai_name || '',
+    email: customer.email,
+    phone: customer.phone,
+    account: customer.account,
+    bank: customer.bank || ''
+  }
   selectedShopperId.value = customer.id
   isEditModalOpen.value = true
 }

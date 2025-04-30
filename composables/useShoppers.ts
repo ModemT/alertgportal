@@ -5,6 +5,7 @@ export interface Shopper {
   id: string
   account: string
   name: string
+  thai_name?: string
   email: string
   phone: string
   status: string
@@ -227,6 +228,37 @@ export const useShoppers = () => {
     }
   }
 
+  const searchShoppers = async (searchTerm: string) => {
+    try {
+      loading.value = true
+      error.value = null
+      const response = await fetch(`${apiBase}/api/shoppers/search?search_term=${encodeURIComponent(searchTerm)}`, {
+        headers: {
+          'accept': 'application/json',
+          'access-token': localStorage.getItem('token') || '',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          throw new Error(errorData.detail[0].msg || 'Failed to search shoppers')
+        } else {
+          throw new Error(errorData.detail || 'Failed to search shoppers')
+        }
+      }
+
+      const data = await response.json()
+      shoppers.value = data || []
+      return data
+    } catch (error) {
+      console.error('Error searching shoppers:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     shoppers,
     loading,
@@ -236,6 +268,7 @@ export const useShoppers = () => {
     getShopperByAccount,
     createShopper,
     updateShopper,
-    deleteShopper
+    deleteShopper,
+    searchShoppers
   }
 } 
