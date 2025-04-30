@@ -95,9 +95,7 @@
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อีเมล</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เบอร์โทร</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่เข้าร่วม</th>
-              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การชำระเงินทั้งหมด</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">มูลค่ารวม</th>
-              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
               <th class="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
             </tr>
           </thead>
@@ -119,13 +117,7 @@
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.email }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.phone }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ formatDate(customer.created_at) }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ customer.total_completed_charges?.THB || '0.00' }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{{ formatCurrency(customer.total_completed_charges?.THB || '0.00') }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
-                <span :class="getStatusClass(customer.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                  {{ customer.status }}
-                </span>
-              </td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
                 <button @click="openShopperDetails(customer.id)" class="text-primary-600 hover:text-primary-900 mr-2">ดู</button>
                 <button @click="openEditModal(customer)" class="text-primary-600 hover:text-primary-900">แก้ไข</button>
@@ -228,11 +220,7 @@ const handleSearch = async () => {
 
   searchTimeout.value = setTimeout(async () => {
     try {
-      if (searchQuery.value.trim()) {
-        await searchShoppers(searchQuery.value.trim())
-      } else {
-        await fetchShoppers()
-      }
+      await searchShoppers(searchQuery.value.trim())
     } catch (err) {
       console.error('Error searching shoppers:', err)
       error.value = err instanceof Error ? err.message : 'Failed to search shoppers'
