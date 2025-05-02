@@ -10,7 +10,7 @@ definePageMeta({
 
 const router = useRouter()
 const api = useApi()
-const { shoppers, loading: shoppersLoading, fetchShoppers } = useShoppers()
+const { shoppers, loading: shoppersLoading, fetchShoppers, searchShoppers } = useShoppers()
 
 const amount = ref<number>(5000)
 const currency = ref<string>('THB')
@@ -20,6 +20,7 @@ const searchQuery = ref<string>('')
 const isDropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const formSubmitted = ref(false)
+const searchTimeout = ref<NodeJS.Timeout | null>(null)
 
 // Add input sanitization function
 const sanitizeAmount = (value: string): number => {
@@ -44,16 +45,24 @@ const fetchUserProfile = async () => {
   }
 }
 
-// Filter shoppers based on search query
-const filteredShoppers = computed(() => {
-  if (!searchQuery.value) return shoppers.value
-  const query = searchQuery.value.toLowerCase()
-  return shoppers.value.filter(shopper => 
-    shopper.name.toLowerCase().includes(query) ||
-    shopper.email.toLowerCase().includes(query) ||
-    shopper.phone.includes(query)
-  )
-})
+// Update search handling
+const handleSearch = async () => {
+  if (searchTimeout.value) {
+    clearTimeout(searchTimeout.value)
+  }
+
+  searchTimeout.value = setTimeout(async () => {
+    try {
+      if (searchQuery.value.trim()) {
+        await searchShoppers(searchQuery.value.trim())
+      } else {
+        const { data } = await fetchShoppers(undefined, 100)
+      }
+    } catch (err) {
+      console.error('Error searching shoppers:', err)
+    }
+  }, 300) // 300ms debounce
+}
 
 // Get selected shopper details
 const selectedShopper = computed(() => {
@@ -85,10 +94,13 @@ const handleSubmit = () => {
   formSubmitted.value = false
 }
 
+// Add back filteredShoppers but now it just returns the API results
+const filteredShoppers = computed(() => shoppers.value)
+
 onMounted(async () => {
   try {
     await fetchUserProfile()
-    const { data, hasMore } = await fetchShoppers(undefined, 100) // Fetch up to 100 shoppers for the dropdown
+    const { data } = await fetchShoppers(undefined, 100) // Fetch initial shoppers for the dropdown
     if (data.length === 0) {
       console.warn('No shoppers found')
     }
@@ -148,6 +160,7 @@ onUnmounted(() => {
               <input
                 id="shopper-search"
                 v-model="searchQuery"
+                @input="handleSearch"
                 type="text"
                 placeholder="ค้นหาผู้ซื้อ..."
                 class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
