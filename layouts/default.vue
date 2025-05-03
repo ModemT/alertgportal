@@ -179,6 +179,10 @@ import { ref, computed, onBeforeMount, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuth } from '~/composables/useAuth';
 
+definePageMeta({
+  middleware: ['auth']
+});
+
 const route = useRoute();
 const isSidebarOpen = ref(false);
 const { isAuthenticated, initializeAuth, logout, user } = useAuth();
