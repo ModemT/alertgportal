@@ -17,6 +17,7 @@ interface ChargeMetadata {
   expected_account: string;
   received_account: string;
   transaction_reference: string;
+  approved_by?: string;
 }
 
 interface MatchingCharge {
