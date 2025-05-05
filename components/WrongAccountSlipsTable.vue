@@ -38,24 +38,62 @@
       <table class="min-w-full bg-white border rounded-lg">
         <thead class="bg-gray-50">
           <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การดำเนินการ</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ธนาคาร</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อผู้โอน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่บัญชีที่โอน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่บัญชีที่ถูกต้องของลูกค้า</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสการชำระเงิน</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
           <tr v-if="charges.length === 0">
-            <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+            <td colspan="9" class="px-6 py-4 text-center text-gray-500">
               ไม่พบข้อมูล
             </td>
           </tr>
           <tr v-for="charge in charges" :key="charge.id" class="hover:bg-gray-50">
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              <div class="flex space-x-2">
+                <button
+                  @click.prevent="viewCharge(charge.id)"
+                  class="text-blue-600 hover:text-blue-900 px-3 py-1 rounded-md border border-blue-600 hover:bg-blue-50"
+                >
+                  ดู
+                </button>
+                <button
+                  v-if="charge.status === 'pending'"
+                  @click.prevent="completeCharge(charge.id)"
+                  :disabled="isCompletingCharge === charge.id"
+                  class="text-green-600 hover:text-green-900 px-3 py-1 rounded-md border border-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ isCompletingCharge === charge.id ? 'กำลังดำเนินการ...' : 'ดำเนินการ' }}
+                </button>
+                <button
+                  v-else
+                  class="text-gray-400 px-3 py-1 rounded-md border border-gray-300 cursor-not-allowed"
+                  disabled
+                >
+                  ดำเนินการ
+                </button>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ formatDate(charge.created_at) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span
+                :class="{
+                  'px-2 py-1 text-xs rounded-full': true,
+                  'bg-yellow-100 text-yellow-800': charge.status === 'pending',
+                  'bg-green-100 text-green-800': charge.status === 'completed'
+                }"
+              >
+                {{ charge.status === 'pending' ? 'รอดำเนินการ' : 'เสร็จสิ้น' }}
+              </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ charge.charge_metadata.payment_details.bank }}
@@ -72,16 +110,8 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ charge.charge_metadata.expected_account }}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span
-                :class="{
-                  'px-2 py-1 text-xs rounded-full': true,
-                  'bg-yellow-100 text-yellow-800': charge.status === 'pending',
-                  'bg-green-100 text-green-800': charge.status === 'completed'
-                }"
-              >
-                {{ charge.status === 'pending' ? 'รอดำเนินการ' : 'เสร็จสิ้น' }}
-              </span>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ charge.charge_id }}
             </td>
           </tr>
         </tbody>
@@ -175,6 +205,13 @@
         </svg>
       </button>
     </div>
+
+    <!-- Modal -->
+    <MatchingChargeModal
+      :is-open="isModalOpen"
+      :charge-id="selectedChargeId || ''"
+      @close="handleModalClose"
+    />
   </div>
 </template>
 
@@ -182,6 +219,11 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useWrongAccountSlips } from '~/composables/useWrongAccountSlips';
 import { formatDate, formatAmount } from '~/utils/formatters';
+import MatchingChargeModal from '~/components/MatchingChargeModal.vue';
+import { useRuntimeConfig } from '#app';
+
+const config = useRuntimeConfig();
+const isCompletingCharge = ref<string | null>(null);
 
 const {
   charges,
@@ -194,6 +236,58 @@ const {
   handlePageChange,
   handleStatusChange,
 } = useWrongAccountSlips();
+
+// Modal state
+const isModalOpen = ref(false);
+const selectedChargeId = ref<string | null>(null);
+
+const viewCharge = (chargeId: string) => {
+  console.log('Opening modal for charge:', chargeId);
+  selectedChargeId.value = chargeId;
+  isModalOpen.value = true;
+  console.log('Modal state after opening:', { isOpen: isModalOpen.value, chargeId: selectedChargeId.value });
+};
+
+const handleModalClose = () => {
+  console.log('Closing modal');
+  isModalOpen.value = false;
+  selectedChargeId.value = null;
+  console.log('Modal state after closing:', { isOpen: isModalOpen.value, chargeId: selectedChargeId.value });
+  // Refresh the table data
+  fetchCharges();
+};
+
+const completeCharge = async (chargeId: string) => {
+  try {
+    isCompletingCharge.value = chargeId;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`${config.public.apiBase}/matching-charges/${chargeId}/complete`, {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'access-token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to complete charge');
+    }
+
+    // Refresh the table data after successful completion
+    await fetchCharges();
+  } catch (err) {
+    console.error('Error completing charge:', err);
+    error.value = err instanceof Error ? err.message : 'Failed to complete charge';
+  } finally {
+    isCompletingCharge.value = null;
+  }
+};
 
 // Calculate displayed page numbers with ellipsis
 const displayedPages = computed(() => {
