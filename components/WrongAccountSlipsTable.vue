@@ -66,11 +66,10 @@
                 </button>
                 <button
                   v-if="charge.status === 'pending'"
-                  @click.prevent="completeCharge(charge.id)"
-                  :disabled="isCompletingCharge === charge.id"
-                  class="text-green-600 hover:text-green-900 px-3 py-1 rounded-md border border-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click.prevent="initiateComplete(charge.id)"
+                  class="text-green-600 hover:text-green-900 px-3 py-1 rounded-md border border-green-600 hover:bg-green-50"
                 >
-                  {{ isCompletingCharge === charge.id ? 'กำลังดำเนินการ...' : 'ดำเนินการ' }}
+                  ดำเนินการ
                 </button>
                 <button
                   v-else
@@ -212,6 +211,50 @@
       :charge-id="selectedChargeId || ''"
       @close="handleModalClose"
     />
+
+    <!-- Confirmation Dialog -->
+    <div v-if="showConfirmDialog" class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-50">
+      <div class="fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+          <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+            <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+              <div class="sm:flex sm:items-start">
+                <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                  <h3 class="text-base font-semibold leading-6 text-gray-900">ยืนยันการดำเนินการ</h3>
+                  <div class="mt-2">
+                    <p class="text-sm text-gray-500">
+                      คุณต้องการดำเนินการรายการนี้ใช่หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+              <button
+                type="button"
+                class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:ml-3 sm:w-auto"
+                :disabled="isCompletingCharge === pendingChargeId"
+                @click="confirmComplete"
+              >
+                {{ isCompletingCharge === pendingChargeId ? 'กำลังดำเนินการ...' : 'ยืนยัน' }}
+              </button>
+              <button
+                type="button"
+                class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                @click="cancelComplete"
+              >
+                ยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -224,6 +267,8 @@ import { useRuntimeConfig } from '#app';
 
 const config = useRuntimeConfig();
 const isCompletingCharge = ref<string | null>(null);
+const showConfirmDialog = ref(false);
+const pendingChargeId = ref<string | null>(null);
 
 const {
   charges,
@@ -257,15 +302,27 @@ const handleModalClose = () => {
   fetchCharges();
 };
 
-const completeCharge = async (chargeId: string) => {
+const initiateComplete = (chargeId: string) => {
+  pendingChargeId.value = chargeId;
+  showConfirmDialog.value = true;
+};
+
+const cancelComplete = () => {
+  showConfirmDialog.value = false;
+  pendingChargeId.value = null;
+};
+
+const confirmComplete = async () => {
+  if (!pendingChargeId.value) return;
+  
   try {
-    isCompletingCharge.value = chargeId;
+    isCompletingCharge.value = pendingChargeId.value;
     const token = localStorage.getItem('token');
     if (!token) {
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch(`${config.public.apiBase}/matching-charges/${chargeId}/complete`, {
+    const response = await fetch(`${config.public.apiBase}/matching-charges/${pendingChargeId.value}/complete`, {
       method: 'POST',
       headers: {
         'accept': 'application/json',
@@ -278,6 +335,10 @@ const completeCharge = async (chargeId: string) => {
       const errorData = await response.json();
       throw new Error(errorData.detail || 'Failed to complete charge');
     }
+
+    // Close the confirmation dialog
+    showConfirmDialog.value = false;
+    pendingChargeId.value = null;
 
     // Refresh the table data after successful completion
     await fetchCharges();
