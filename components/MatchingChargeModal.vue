@@ -82,7 +82,7 @@
                     <p class="text-sm text-gray-500">วันที่อัปเดต</p>
                     <p class="mt-1">{{ formatDate(chargeDetails.updated_at) }}</p>
                   </div>
-                  <div v-if="chargeDetails.status === 'completed'">
+                  <div v-if="chargeDetails.status === 'completed' || chargeDetails.status === 'refunded'">
                     <p class="text-sm text-gray-500">อนุมัติโดย</p>
                     <p class="mt-1">{{ chargeDetails.charge_metadata.approved_by || '-' }}</p>
                   </div>

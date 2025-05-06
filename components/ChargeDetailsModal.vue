@@ -64,7 +64,7 @@
                   <p class="text-sm text-gray-500">รายละเอียด</p>
                   <p class="text-sm font-medium text-gray-900">{{ charge?.description || '-' }}</p>
                 </div>
-                <div v-if="charge?.status === 'completed'" class="bg-gray-50 p-4 rounded-lg mt-4">
+                <div v-if="charge?.status === 'completed' || charge?.status === 'refunded'" class="bg-gray-50 p-4 rounded-lg mt-4">
                   <p class="text-sm text-gray-500">อนุมัติโดย</p>
                   <p class="text-sm font-medium text-gray-900">{{ charge?.charge_metadata?.approved_by || '-' }}</p>
                 </div>
