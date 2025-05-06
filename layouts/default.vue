@@ -178,6 +178,7 @@
 import { ref, computed, onBeforeMount, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuth } from '~/composables/useAuth';
+import { useToast } from '~/composables/useToast';
 
 definePageMeta({
   middleware: ['auth']
@@ -185,7 +186,8 @@ definePageMeta({
 
 const route = useRoute();
 const isSidebarOpen = ref(false);
-const { isAuthenticated, initializeAuth, logout, user } = useAuth();
+const { isAuthenticated, initializeAuth, logout, user, checkAuth, isSessionExpired } = useAuth();
+const { showToast } = useToast();
 const isLoading = ref(true);
 
 // Initialize authentication status
@@ -193,6 +195,10 @@ const initializeAuthStatus = async () => {
   try {
     const success = await initializeAuth();
     if (!success && route.path !== '/login' && route.path !== '/register') {
+      // Show session expired notification if that was the case
+      if (isSessionExpired.value) {
+        showToast('เซสชันของคุณหมดอายุแล้ว กรุณาเข้าสู่ระบบอีกครั้ง', 'warning');
+      }
       navigateTo('/login');
       return;
     }
@@ -207,8 +213,13 @@ const initializeAuthStatus = async () => {
 };
 
 // Watch for route changes to reinitialize auth if needed
-watch(() => route.path, () => {
+watch(() => route.path, async () => {
+  await checkAuth()
   if (isAuthenticated.value === false) {
+    // Show session expired notification if that was the case
+    if (isSessionExpired.value) {
+      showToast('เซสชันของคุณหมดอายุแล้ว กรุณาเข้าสู่ระบบอีกครั้ง', 'warning');
+    }
     initializeAuthStatus();
   }
 });
