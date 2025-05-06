@@ -54,10 +54,15 @@
                         :class="{
                           'px-2 py-1 text-xs rounded-full': true,
                           'bg-yellow-100 text-yellow-800': chargeDetails.status === 'pending',
-                          'bg-green-100 text-green-800': chargeDetails.status === 'completed'
+                          'bg-green-100 text-green-800': chargeDetails.status === 'completed',
+                          'bg-red-100 text-red-800': chargeDetails.status === 'cancelled'
                         }"
                       >
-                        {{ chargeDetails.status === 'pending' ? 'รอดำเนินการ' : 'เสร็จสิ้น' }}
+                        {{ 
+                          chargeDetails.status === 'pending' ? 'รอดำเนินการ' : 
+                          chargeDetails.status === 'completed' ? 'เสร็จสิ้น' : 
+                          chargeDetails.status === 'cancelled' ? 'หมดอายุ' : chargeDetails.status 
+                        }}
                       </span>
                     </p>
                   </div>

@@ -11,6 +11,7 @@
         <option value="">ทั้งหมด</option>
         <option value="pending">รอดำเนินการ</option>
         <option value="completed">เสร็จสิ้น</option>
+        <option value="cancelled">หมดอายุ</option>
       </select>
     </div>
 
@@ -89,10 +90,15 @@
                 :class="{
                   'px-2 py-1 text-xs rounded-full': true,
                   'bg-yellow-100 text-yellow-800': charge.status === 'pending',
-                  'bg-green-100 text-green-800': charge.status === 'completed'
+                  'bg-green-100 text-green-800': charge.status === 'completed',
+                  'bg-red-100 text-red-800': charge.status === 'cancelled'
                 }"
               >
-                {{ charge.status === 'pending' ? 'รอดำเนินการ' : 'เสร็จสิ้น' }}
+                {{ 
+                  charge.status === 'pending' ? 'รอดำเนินการ' : 
+                  charge.status === 'completed' ? 'เสร็จสิ้น' : 
+                  charge.status === 'cancelled' ? 'หมดอายุ' : charge.status 
+                }}
               </span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

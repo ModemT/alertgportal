@@ -25,7 +25,7 @@ interface MatchingCharge {
   charge_id: string;
   amount: string;
   currency: string;
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'cancelled';
   charge_metadata: ChargeMetadata;
   created_at: string;
   updated_at: string;
