@@ -16,11 +16,13 @@ export const useAuth = () => {
   const user = ref<User | null>(null)
   const partnerId = ref<string | null>(null)
   const isAuthenticated = ref(false)
+  const isSessionExpired = ref(false)
 
   const setUser = (userData: User) => {
     user.value = userData
     partnerId.value = userData.partner_id
     isAuthenticated.value = true
+    isSessionExpired.value = false
   }
 
   const clearUser = () => {
@@ -115,6 +117,9 @@ export const useAuth = () => {
       })
 
       if (!response.ok) {
+        if (isAuthenticated.value) {
+          isSessionExpired.value = true
+        }
         throw new Error('Not authenticated')
       }
 
@@ -144,6 +149,9 @@ export const useAuth = () => {
       })
 
       if (!response.ok) {
+        if (isAuthenticated.value) {
+          isSessionExpired.value = true
+        }
         clearUser()
         localStorage.removeItem('token')
         return false
@@ -194,6 +202,7 @@ export const useAuth = () => {
     user,
     partnerId,
     isAuthenticated,
+    isSessionExpired,
     login,
     register,
     logout,

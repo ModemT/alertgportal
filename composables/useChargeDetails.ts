@@ -8,7 +8,12 @@ interface Charge {
   currency: string
   status: string
   description: string
-  charge_metadata: Record<string, any>
+  charge_metadata: {
+    payment_method?: string
+    fee?: number
+    tax?: number
+    approved_by?: string
+  }
   created_at: string
   updated_at: string
 }

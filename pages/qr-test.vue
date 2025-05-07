@@ -12,7 +12,7 @@ const router = useRouter()
 const api = useApi()
 const { shoppers, loading: shoppersLoading, fetchShoppers, searchShoppers } = useShoppers()
 
-const amount = ref<number>(5000)
+const amount = ref<number>(0)
 const currency = ref<string>('THB')
 const partnerId = ref<string>('')
 const selectedShopperId = ref<string>('')
@@ -56,7 +56,7 @@ const handleSearch = async () => {
       if (searchQuery.value.trim()) {
         await searchShoppers(searchQuery.value.trim())
       } else {
-        const { data } = await fetchShoppers(undefined, 100)
+        const { data } = await fetchShoppers(undefined, 10)
       }
     } catch (err) {
       console.error('Error searching shoppers:', err)
@@ -100,7 +100,7 @@ const filteredShoppers = computed(() => shoppers.value)
 onMounted(async () => {
   try {
     await fetchUserProfile()
-    const { data } = await fetchShoppers(undefined, 100) // Fetch initial shoppers for the dropdown
+    const { data } = await fetchShoppers(undefined, 10) // Fetch initial shoppers for the dropdown
     if (data.length === 0) {
       console.warn('No shoppers found')
     }
