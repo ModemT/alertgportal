@@ -56,7 +56,7 @@ const handleSearch = async () => {
       if (searchQuery.value.trim()) {
         await searchShoppers(searchQuery.value.trim())
       } else {
-        const { data } = await fetchShoppers(undefined, 100)
+        const { data } = await fetchShoppers(undefined, 50)
       }
     } catch (err) {
       console.error('Error searching shoppers:', err)
