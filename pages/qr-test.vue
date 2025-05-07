@@ -12,7 +12,7 @@ const router = useRouter()
 const api = useApi()
 const { shoppers, loading: shoppersLoading, fetchShoppers, searchShoppers } = useShoppers()
 
-const amount = ref<number>(5000)
+const amount = ref<number>(0)
 const currency = ref<string>('THB')
 const partnerId = ref<string>('')
 const selectedShopperId = ref<string>('')
