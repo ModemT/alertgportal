@@ -55,7 +55,7 @@
             </div>
             <div>
               <p class="text-sm font-medium text-gray-500">วันที่เข้าร่วม</p>
-              <p class="mt-1">{{ formatDate(shopper?.created_at) }}</p>
+              <p class="mt-1">{{ formatDate(shopper?.created_at || '') }}</p>
             </div>
           </div>
 
@@ -64,7 +64,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm font-medium text-blue-800">มูลค่ารวม</p>
-                <p class="mt-1 text-2xl font-bold text-blue-900">{{ formatCurrency(shopper?.total_completed_charges?.THB || 0) }}</p>
+                <p class="mt-1 text-2xl font-bold text-blue-900">{{ formatCurrency(Number(shopper?.total_completed_charges?.THB || 0)) }}</p>
               </div>
               <div class="bg-blue-100 rounded-full p-3">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,7 +77,16 @@
         
         <!-- Charges Table -->
         <div class="mt-8">
-          <h4 class="text-lg font-medium text-gray-900 mb-4">ประวัติการชำระเงิน</h4>
+          <div class="flex justify-between items-center mb-4">
+            <h4 class="text-lg font-medium text-gray-900">ประวัติการชำระเงิน</h4>
+            <button 
+              @click="exportCharges" 
+              class="px-3 py-1 text-sm font-medium text-white bg-secondary-600 rounded-md hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary-500"
+              :disabled="isExporting"
+            >
+              {{ isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV' }}
+            </button>
+          </div>
           
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -144,6 +153,7 @@ import Modal from './Modal.vue'
 import RefundModal from './RefundModal.vue'
 import { useShopperDetails } from '~/composables/useShopperDetails'
 import { useShopperCharges } from '~/composables/useShopperCharges'
+import { useRuntimeConfig } from '#app'
 
 const props = defineProps<{
   isOpen: boolean
@@ -162,6 +172,7 @@ const error = computed(() => shopperError.value || chargesError.value)
 
 const isRefundModalOpen = ref(false)
 const selectedCharge = ref<any>(null)
+const isExporting = ref(false)
 
 const handleClose = () => {
   emit('close')
@@ -257,6 +268,70 @@ const getStatusText = (status: string): string => {
 const openRefundModal = (charge: any) => {
   selectedCharge.value = charge
   isRefundModalOpen.value = true
+}
+
+const exportCharges = async () => {
+  try {
+    isExporting.value = true
+    
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiBase as string
+    const token = localStorage.getItem('token')
+    
+    if (!token) {
+      throw new Error('ไม่พบ token สำหรับการยืนยันตัวตน')
+    }
+    
+    // Build query parameters
+    const params = new URLSearchParams()
+    params.append('include_metadata', 'false') // Default to false, can be made configurable
+    
+    // Use the specific shopper endpoint
+    const response = await fetch(
+      `${apiBase}/shoppers/${props.shopperId}/charges/export/csv?${params.toString()}`,
+      {
+        headers: {
+          'accept': 'text/csv',
+          'access-token': token
+        }
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    // Get the blob from the response
+    const blob = await response.blob()
+    
+    // Get filename from Content-Disposition header or create default
+    let filename = `shopper_${props.shopperId}_charges_${new Date().toISOString().split('T')[0]}.csv`
+    const contentDisposition = response.headers.get('Content-Disposition')
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/)
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/"/g, '')
+      }
+    }
+    
+    // Create download link and trigger download
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    
+    // Clean up
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (error) {
+    console.error('Error exporting to CSV:', error)
+    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV: ' + (error instanceof Error ? error.message : 'Unknown error'))
+  } finally {
+    isExporting.value = false
+  }
 }
 
 watch(() => props.isOpen, async (newValue) => {

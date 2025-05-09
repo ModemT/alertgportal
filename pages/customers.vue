@@ -63,7 +63,16 @@
             </div>
           </div>
         </div>
-        <div class="flex items-end">
+        <div class="flex flex-col items-end justify-end">
+          <div class="flex items-center mb-2">
+            <input 
+              type="checkbox" 
+              id="include-charge-summary" 
+              v-model="includeChargeSummary"
+              class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            />
+            <label for="include-charge-summary" class="ml-2 block text-sm text-gray-700">รวมสรุปการชำระเงิน</label>
+          </div>
           <button 
             @click="exportToCSV" 
             class="btn btn-secondary text-sm w-full"
@@ -209,6 +218,7 @@ const endDate = ref('')
 const isExporting = ref(false)
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(true)
+const includeChargeSummary = ref(true)
 
 // Update handleSearch to use debounce
 const searchTimeout = ref<NodeJS.Timeout | null>(null)
@@ -300,57 +310,88 @@ watch(timeFilter, (newValue) => {
   }
 })
 
-const exportToCSV = () => {
+const exportToCSV = async () => {
   try {
     isExporting.value = true
     
-    // Get filtered shoppers based on current filters
-    const filteredData = filteredShoppers.value
+    // Format dates to ISO 8601 for API
+    let formattedStartDate, formattedEndDate
+    
+    if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
+      // For custom date range, use the selected dates
+      const start = new Date(startDate.value)
+      const end = new Date(endDate.value)
+      end.setHours(23, 59, 59, 999) // Set to end of day
+      formattedStartDate = start.toISOString()
+      formattedEndDate = end.toISOString()
+    } else if (timeFilter.value && timeFilter.value !== 'custom') {
+      // For predefined ranges, calculate the date range
+      const days = parseInt(timeFilter.value)
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - days)
+      formattedStartDate = start.toISOString()
+      formattedEndDate = end.toISOString()
+    }
+    
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiBase as string
+    const token = localStorage.getItem('token')
+    
+    if (!token) {
+      throw new Error('ไม่พบ token สำหรับการยืนยันตัวตน')
+    }
+    
+    // Build query parameters
+    const params = new URLSearchParams()
+    if (formattedStartDate) params.append('start_time', formattedStartDate)
+    if (formattedEndDate) params.append('end_time', formattedEndDate)
+    if (searchQuery.value) params.append('search', searchQuery.value)
+    params.append('include_charge_summary', includeChargeSummary.value ? 'true' : 'false')
+    
+    // Use the shoppers export endpoint
+    const response = await fetch(
+      `${apiBase}/shoppers/export/csv?${params.toString()}`,
+      {
+        headers: {
+          'accept': 'text/csv',
+          'access-token': token
+        }
+      }
+    )
 
-    // Prepare CSV data
-    const headers = [
-      'รหัสลูกค้า',
-      'ชื่อ',
-      'อีเมล',
-      'เบอร์โทร',
-      'เลขบัญชี',
-      'วันที่เข้าร่วม',
-      'การชำระเงินทั้งหมด',
-      'มูลค่ารวม',
-      'สถานะ'
-    ]
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
 
-    const csvData = filteredData.map(shopper => [
-      shopper.id,
-      shopper.name,
-      shopper.email,
-      shopper.phone,
-      shopper.account,
-      formatDate(shopper.created_at),
-      shopper.total_completed_charges?.THB || '0.00',
-      formatCurrency(shopper.total_completed_charges?.THB || '0.00'),
-      shopper.status
-    ])
-
-    // Convert to CSV string
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n')
-
-    // Create and trigger download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // Get the blob from the response
+    const blob = await response.blob()
+    
+    // Get filename from Content-Disposition header or create default
+    let filename = `customers_export_${new Date().toISOString().split('T')[0]}.csv`
+    const contentDisposition = response.headers.get('Content-Disposition')
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/)
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/"/g, '')
+      }
+    }
+    
+    // Create download link and trigger download
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    
+    // Clean up
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
   } catch (error) {
     console.error('Error exporting to CSV:', error)
-    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV')
+    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV: ' + (error instanceof Error ? error.message : 'Unknown error'))
   } finally {
     isExporting.value = false
   }

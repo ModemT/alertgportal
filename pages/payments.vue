@@ -447,91 +447,88 @@ const closeChargeDetails = (): void => {
   selectedChargeId.value = ''
 }
 
-const exportToCSV = () => {
+const exportToCSV = async () => {
   try {
     isExporting.value = true
     
-    // Get filtered charges based on date range
-    let filteredData = [...charges.value]
+    // Format dates to ISO 8601 for API
+    let formattedStartDate, formattedEndDate
     
-    // Apply date range filter
     if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
+      // For custom date range, use the selected dates
       const start = new Date(startDate.value)
       const end = new Date(endDate.value)
       end.setHours(23, 59, 59, 999) // Set to end of day
-      
-      filteredData = filteredData.filter(charge => {
-        const chargeDate = new Date(charge.created_at)
-        return chargeDate.getTime() >= start.getTime() && chargeDate.getTime() <= end.getTime()
-      })
+      formattedStartDate = start.toISOString()
+      formattedEndDate = end.toISOString()
     } else if (timeFilter.value && timeFilter.value !== 'custom') {
+      // For predefined ranges, calculate the date range
       const days = parseInt(timeFilter.value)
-      const cutoffDate = new Date()
-      cutoffDate.setDate(cutoffDate.getDate() - days)
-      filteredData = filteredData.filter(charge => new Date(charge.created_at).getTime() >= cutoffDate.getTime())
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - days)
+      formattedStartDate = start.toISOString()
+      formattedEndDate = end.toISOString()
+    }
+    
+    const config = useRuntimeConfig()
+    const apiBase = config.public.apiBase as string
+    const token = localStorage.getItem('token')
+    
+    if (!token) {
+      throw new Error('ไม่พบ token สำหรับการยืนยันตัวตน')
+    }
+    
+    // Build query parameters
+    const params = new URLSearchParams()
+    if (formattedStartDate) params.append('start_time', formattedStartDate)
+    if (formattedEndDate) params.append('end_time', formattedEndDate)
+    if (statusFilter.value) params.append('status', statusFilter.value)
+    params.append('include_metadata', 'false') // Default to false, can be made configurable
+    
+    // Fetch as blob for file download
+    const response = await fetch(
+      `${apiBase}/charges/export/csv?${params.toString()}`,
+      {
+        headers: {
+          'accept': 'text/csv',
+          'access-token': token
+        }
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    // Apply status filter
-    if (statusFilter.value) {
-      filteredData = filteredData.filter(charge => charge.status === statusFilter.value)
+    // Get the blob from the response
+    const blob = await response.blob()
+    
+    // Get filename from Content-Disposition header or create default
+    let filename = `charges_export_${new Date().toISOString().split('T')[0]}.csv`
+    const contentDisposition = response.headers.get('Content-Disposition')
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename=([^;]+)/)
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/"/g, '')
+      }
     }
-
-    // Apply search filter
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase()
-      filteredData = filteredData.filter(charge => 
-        charge.id.toLowerCase().includes(query) ||
-        charge.description?.toLowerCase().includes(query) ||
-        charge.shopper_id?.toLowerCase().includes(query) ||
-        charge.amount.toString().includes(query)
-      )
-    }
-
-    // Sort by created_at in descending order
-    filteredData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-
-    // Prepare CSV data
-    const headers = [
-      'รหัส',
-      'รหัสผู้ซื้อ',
-      'รายละเอียด',
-      'จำนวนเงิน',
-      'สกุลเงิน',
-      'สถานะ',
-      'วันที่สร้าง',
-      'วันที่อัปเดต'
-    ]
-
-    const csvData = filteredData.map(charge => [
-      charge.id,
-      charge.shopper_id || '',
-      charge.description || '',
-      charge.amount,
-      charge.currency,
-      getStatusText(charge.status),
-      formatDate(charge.created_at),
-      formatDate(charge.updated_at)
-    ])
-
-    // Convert to CSV string
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n')
-
-    // Create and trigger download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    
+    // Create download link and trigger download
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    
+    // Clean up
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
   } catch (error) {
     console.error('Error exporting to CSV:', error)
-    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV')
+    alert('เกิดข้อผิดพลาดในการส่งออกไฟล์ CSV: ' + (error instanceof Error ? error.message : 'Unknown error'))
   } finally {
     isExporting.value = false
   }
