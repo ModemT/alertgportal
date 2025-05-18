@@ -1,18 +1,130 @@
 <template>
   <div>
-    <!-- Status Filter -->
-    <div class="mb-4">
-      <select
-        v-model="selectedStatus"
-        class="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        @change="handleStatusChange"
-        :disabled="isLoading"
-      >
-        <option value="">ทั้งหมด</option>
-        <option value="pending">รอดำเนินการ</option>
-        <option value="completed">เสร็จสิ้น</option>
-        <option value="cancelled">หมดอายุ</option>
-      </select>
+    <!-- Filter Section -->
+    <div class="bg-white p-4 mb-4 border rounded-md shadow-sm">
+      <h3 class="font-medium text-gray-700 mb-3">ตัวกรอง</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Status Filter -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+          <select
+            v-model="selectedStatus"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @change="handleFilterChange"
+            :disabled="isLoading"
+          >
+            <option value="">ทั้งหมด</option>
+            <option value="pending">รอดำเนินการ</option>
+            <option value="completed">เสร็จสิ้น</option>
+            <option value="cancelled">หมดอายุ</option>
+          </select>
+        </div>
+
+        <!-- Currency Filter -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">สกุลเงิน</label>
+          <select
+            v-model="selectedCurrency"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @change="handleFilterChange"
+            :disabled="isLoading"
+          >
+            <option value="">ทั้งหมด</option>
+            <option value="THB">บาท (THB)</option>
+            <option value="USD">ดอลลาร์สหรัฐ (USD)</option>
+          </select>
+        </div>
+
+        <!-- Amount Range -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ช่วงจำนวนเงิน</label>
+          <div class="flex space-x-2">
+            <input
+              v-model.number="minAmount"
+              type="number"
+              placeholder="ขั้นต่ำ"
+              class="w-1/2 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              :disabled="isLoading"
+            />
+            <input
+              v-model.number="maxAmount"
+              type="number"
+              placeholder="สูงสุด"
+              class="w-1/2 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              :disabled="isLoading"
+            />
+          </div>
+        </div>
+
+        <!-- Date Range -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+          <input
+            v-model="localStartDate"
+            type="date"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :disabled="isLoading"
+            @change="handleStartDateChange"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+          <input
+            v-model="localEndDate"
+            type="date"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :disabled="isLoading"
+            @change="handleEndDateChange"
+          />
+        </div>
+
+        <!-- Sort Options -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เรียงตาม</label>
+          <div class="flex space-x-2">
+            <select
+              v-model="sortBy"
+              class="w-2/3 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @change="handleFilterChange"
+              :disabled="isLoading"
+            >
+              <option value="created_at">วันที่</option>
+              <option value="amount">จำนวนเงิน</option>
+              <option value="status">สถานะ</option>
+            </select>
+            <select
+              v-model="sortOrder"
+              class="w-1/3 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @change="handleFilterChange"
+              :disabled="isLoading"
+            >
+              <option value="desc">ลงมา</option>
+              <option value="asc">ขึ้นไป</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Actions -->
+      <div class="flex justify-end space-x-2 mt-4">
+        <button
+          @click="clearFilters"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          :disabled="isLoading"
+        >
+          ล้างตัวกรอง
+        </button>
+        <button
+          @click="handleFilterChange"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          :disabled="isLoading"
+        >
+          ค้นหา
+        </button>
+      </div>
     </div>
 
     <!-- Error Message -->
@@ -27,6 +139,11 @@
           <p class="text-sm text-red-700">{{ error }}</p>
         </div>
       </div>
+    </div>
+
+    <!-- Count Summary -->
+    <div v-if="!isLoading && totalFilteredItems" class="mb-4 text-sm text-gray-600">
+      แสดง {{ charges.length }} รายการ จากทั้งหมด {{ totalFilteredItems }} รายการที่ตรงกับเงื่อนไข
     </div>
 
     <!-- Loading State -->
@@ -45,6 +162,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อนุมัติโดย</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ธนาคาร</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สกุลเงิน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อผู้โอน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่บัญชีลูกค้าที่โอน</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่บัญชีที่ถูกต้องของลูกค้า</th>
@@ -53,7 +171,7 @@
         </thead>
         <tbody class="divide-y divide-gray-200">
           <tr v-if="charges.length === 0">
-            <td colspan="9" class="px-6 py-4 text-center text-gray-500">
+            <td colspan="11" class="px-6 py-4 text-center text-gray-500">
               ไม่พบข้อมูล
             </td>
           </tr>
@@ -111,6 +229,9 @@
               {{ formatAmount(charge.amount) }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ charge.currency }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               {{ charge.charge_metadata.payment_details.sender_name }}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -127,61 +248,115 @@
       </table>
     </div>
 
-    <!-- Pagination -->
-    <div v-if="!isLoading && charges.length > 0" class="flex justify-center mt-4 space-x-2">
-      <!-- First page -->
-      <button
-        @click="handlePageChange(1)"
-        :disabled="currentPage === 1"
-        :class="{
-          'px-2 py-1 rounded border': true,
-          'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
-          'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
-        }"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 17l-5-5 5-5"/>
-          <path d="M18 17l-5-5 5-5"/>
-        </svg>
-      </button>
+    <!-- Pagination Controls -->
+    <div v-if="!isLoading && charges.length > 0" class="mt-4">
+      <!-- Page Size Selector -->
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center space-x-2">
+          <label class="text-sm text-gray-600">แสดง:</label>
+          <select
+            v-model="pageSize"
+            class="border rounded-md text-sm px-2 py-1"
+            @change="handlePageSizeChange"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="50">50</option>
+          </select>
+          <span class="text-sm text-gray-600">รายการต่อหน้า</span>
+        </div>
+        
+        <div class="text-sm text-gray-600" v-if="totalPages">
+          หน้า {{ currentPage }} จาก {{ totalPages }}
+        </div>
+      </div>
 
-      <!-- Previous page -->
-      <button
-        @click="handlePageChange(currentPage - 1)"
-        :disabled="currentPage === 1"
-        :class="{
-          'px-2 py-1 rounded border': true,
-          'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
-          'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
-        }"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-        </svg>
-      </button>
+      <!-- Pagination Buttons -->
+      <div class="flex justify-center space-x-2">
+        <!-- First page -->
+        <button
+          @click="handlePageChange(1)"
+          :disabled="currentPage === 1"
+          :class="{
+            'px-2 py-1 rounded border': true,
+            'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+            'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
+          }"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 17l-5-5 5-5"/>
+            <path d="M18 17l-5-5 5-5"/>
+          </svg>
+        </button>
 
-      <!-- Current page indicator -->
-      <button
-        class="px-3 py-1 rounded border bg-blue-500 text-white"
-        disabled
-      >
-        {{ currentPage }}
-      </button>
-      
-      <!-- Next page -->
-      <button
-        @click="handlePageChange(currentPage + 1)"
-        :disabled="currentPage === totalPages"
-        :class="{
-          'px-2 py-1 rounded border': true,
-          'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === totalPages,
-          'bg-white text-gray-700 hover:bg-gray-50': currentPage !== totalPages
-        }"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-        </svg>
-      </button>
+        <!-- Previous page -->
+        <button
+          @click="handlePageChange(currentPage - 1)"
+          :disabled="currentPage === 1"
+          :class="{
+            'px-2 py-1 rounded border': true,
+            'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+            'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
+          }"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+
+        <!-- Page numbers -->
+        <template v-for="page in displayedPageNumbers" :key="page">
+          <button
+            v-if="typeof page === 'number'"
+            @click="handlePageChange(page)"
+            :class="{
+              'px-3 py-1 rounded border': true,
+              'bg-blue-500 text-white': currentPage === page,
+              'bg-white text-gray-700 hover:bg-gray-50': currentPage !== page
+            }"
+          >
+            {{ page }}
+          </button>
+          <span
+            v-else
+            class="px-2 py-1 text-gray-500"
+          >
+            ...
+          </span>
+        </template>
+
+        <!-- Next page -->
+        <button
+          @click="handlePageChange(currentPage + 1)"
+          :disabled="currentPage >= totalPages"
+          :class="{
+            'px-2 py-1 rounded border': true,
+            'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage >= totalPages,
+            'bg-white text-gray-700 hover:bg-gray-50': currentPage < totalPages
+          }"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+
+        <!-- Last page -->
+        <button
+          @click="handlePageChange(totalPages)"
+          :disabled="currentPage === totalPages"
+          :class="{
+            'px-2 py-1 rounded border': true,
+            'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === totalPages,
+            'bg-white text-gray-700 hover:bg-gray-50': currentPage !== totalPages
+          }"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 17l5-5-5-5"/>
+            <path d="M6 17l5-5-5-5"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Modal -->
@@ -252,14 +427,149 @@ const pendingChargeId = ref<string | null>(null);
 const {
   charges,
   currentPage,
+  pageSize,
   totalPages,
+  totalItems,
+  totalFilteredItems,
   selectedStatus,
+  selectedCurrency,
+  sortBy,
+  sortOrder,
+  startDate,
+  endDate,
+  minAmount,
+  maxAmount,
   isLoading,
   error,
   fetchCharges,
   handlePageChange,
   handleStatusChange,
+  handleFilterChange
 } = useWrongAccountSlips();
+
+// Local date values for the date pickers
+const localStartDate = ref('');
+const localEndDate = ref('');
+
+// Set initial values if there are any
+onMounted(() => {
+  if (startDate.value) {
+    // Convert ISO string to local date format (YYYY-MM-DD)
+    const date = new Date(startDate.value);
+    localStartDate.value = date.toISOString().split('T')[0];
+  }
+  
+  if (endDate.value) {
+    // Convert ISO string to local date format (YYYY-MM-DD)
+    const date = new Date(endDate.value);
+    localEndDate.value = date.toISOString().split('T')[0];
+  }
+});
+
+// Calculate which page numbers to display
+const displayedPageNumbers = computed(() => {
+  if (!totalPages.value || totalPages.value <= 7) {
+    return Array.from({ length: totalPages.value || 0 }, (_, i) => i + 1);
+  }
+  
+  // Logic for showing pages around current page
+  const pages: (number | string)[] = [];
+  const currentPageValue = currentPage.value;
+  
+  // Always show first page
+  pages.push(1);
+  
+  // Show ellipsis if needed
+  if (currentPageValue > 3) {
+    pages.push('ellipsis');
+  }
+  
+  // Pages around current page
+  const startPage = Math.max(2, currentPageValue - 1);
+  const endPage = Math.min(totalPages.value - 1, currentPageValue + 1);
+  
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+  
+  // Show ellipsis if needed
+  if (currentPageValue < totalPages.value - 2) {
+    pages.push('ellipsis');
+  }
+  
+  // Always show last page
+  pages.push(totalPages.value);
+  
+  return pages;
+});
+
+// Handle page size change
+const handlePageSizeChange = () => {
+  currentPage.value = 1; // Reset to page 1 when changing page size
+  fetchCharges();
+};
+
+// Clear all filters
+const clearFilters = () => {
+  selectedStatus.value = '';
+  selectedCurrency.value = '';
+  sortBy.value = 'created_at';
+  sortOrder.value = 'desc';
+  startDate.value = '';
+  endDate.value = '';
+  localStartDate.value = '';
+  localEndDate.value = '';
+  minAmount.value = null;
+  maxAmount.value = null;
+  
+  // Apply filter changes
+  handleFilterChange();
+};
+
+// Convert local date to UTC ISO string for API
+const convertToUTCDate = (dateString: string, isEndDate = false): string => {
+  if (!dateString) return '';
+  
+  // Create date object (in local time)
+  const date = new Date(dateString);
+  
+  // Set the time component based on whether it's start or end date
+  if (isEndDate) {
+    date.setHours(23, 59, 59, 999);
+  } else {
+    date.setHours(0, 0, 0, 0);
+  }
+  
+  // Return as ISO string (which is in UTC)
+  return date.toISOString();
+};
+
+// Handle date changes
+const handleStartDateChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  localStartDate.value = input.value;
+  
+  if (input.value) {
+    startDate.value = convertToUTCDate(input.value, false);
+  } else {
+    startDate.value = '';
+  }
+  
+  debounceFilterChange();
+};
+
+const handleEndDateChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  localEndDate.value = input.value;
+  
+  if (input.value) {
+    endDate.value = convertToUTCDate(input.value, true);
+  } else {
+    endDate.value = '';
+  }
+  
+  debounceFilterChange();
+};
 
 // Modal state
 const isModalOpen = ref(false);
@@ -333,12 +643,17 @@ onMounted(() => {
   fetchCharges();
 });
 
-// Debounce the status change
+// Debounce filter changes
 let debounceTimeout: NodeJS.Timeout;
-watch(selectedStatus, () => {
+const debounceFilterChange = () => {
   clearTimeout(debounceTimeout);
   debounceTimeout = setTimeout(() => {
-    handleStatusChange();
-  }, 300);
+    handleFilterChange();
+  }, 500);
+};
+
+// Watch filter inputs for changes
+watch([minAmount, maxAmount], () => {
+  debounceFilterChange();
 });
 </script> 

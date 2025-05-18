@@ -31,10 +31,15 @@ interface MatchingCharge {
   updated_at: string;
 }
 
-interface MatchingChargesResponse {
+interface PaginatedMatchingCharges {
   matching_charges: MatchingCharge[];
   next_cursor: string | null;
   has_more: boolean;
+  total: number | null;
+  filtered_total: number | null;
+  page: number | null;
+  page_size: number | null;
+  total_pages: number | null;
 }
 
 export function useWrongAccountSlips() {
@@ -42,18 +47,46 @@ export function useWrongAccountSlips() {
   const { partnerId } = useAuth();
   const charges = ref<MatchingCharge[]>([]);
   const currentPage = ref(1);
-  const itemsPerPage = 10;
-  const totalItems = ref(0);
+  const pageSize = ref(10);
+  const totalItems = ref<number | null>(null);
+  const totalFilteredItems = ref<number | null>(null);
+  const apiTotalPages = ref<number | null>(null);
   const selectedStatus = ref('');
+  const selectedCurrency = ref('');
+  const sortBy = ref('created_at');
+  const sortOrder = ref('desc');
+  const startDate = ref('');
+  const endDate = ref('');
+  const minAmount = ref<number | null>(null);
+  const maxAmount = ref<number | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const hasNextPage = ref(false);
   const nextCursor = ref<string | null>(null);
+  const useCursorPagination = ref(false);
 
   const totalPages = computed(() => {
-    // Only show a next page if we know there's more data
+    if (apiTotalPages.value !== null) {
+      return apiTotalPages.value;
+    }
+    
+    // Fallback for page-based pagination
+    if (totalItems.value !== null && pageSize.value > 0) {
+      return Math.ceil(totalItems.value / pageSize.value);
+    }
+    
+    // Cursor-based pagination fallback (should not be used)
     return currentPage.value + (hasNextPage.value ? 1 : 0);
   });
+
+  const resetPagination = () => {
+    currentPage.value = 1;
+    nextCursor.value = null;
+    hasNextPage.value = false;
+    apiTotalPages.value = null;
+    totalItems.value = null;
+    totalFilteredItems.value = null;
+  };
 
   const fetchCharges = async () => {
     try {
@@ -61,16 +94,46 @@ export function useWrongAccountSlips() {
       error.value = null;
       
       const queryParams = new URLSearchParams();
-      queryParams.append('limit', itemsPerPage.toString());
       
+      // Always use page-based pagination
+      queryParams.append('page', currentPage.value.toString());
+      queryParams.append('page_size', pageSize.value.toString());
+      
+      // Add filters
       if (selectedStatus.value) {
         queryParams.append('status', selectedStatus.value);
       }
-
-      // Use cursor-based pagination
-      if (currentPage.value > 1 && nextCursor.value) {
-        queryParams.append('cursor', nextCursor.value);
+      
+      if (selectedCurrency.value) {
+        queryParams.append('currency', selectedCurrency.value);
       }
+      
+      if (sortBy.value) {
+        queryParams.append('sort_by', sortBy.value);
+      }
+      
+      if (sortOrder.value) {
+        queryParams.append('sort_order', sortOrder.value);
+      }
+      
+      if (startDate.value) {
+        queryParams.append('start_date', startDate.value);
+      }
+      
+      if (endDate.value) {
+        queryParams.append('end_date', endDate.value);
+      }
+      
+      if (minAmount.value !== null) {
+        queryParams.append('min_amount', minAmount.value.toString());
+      }
+      
+      if (maxAmount.value !== null) {
+        queryParams.append('max_amount', maxAmount.value.toString());
+      }
+      
+      // Always request filtered total for better UX
+      queryParams.append('include_filtered_total', 'true');
 
       const baseUrl = config.public.apiBase || 'http://0.0.0.0:8000';
       const headers: Record<string, string> = {
@@ -97,12 +160,26 @@ export function useWrongAccountSlips() {
         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
       }
 
-      const data: MatchingChargesResponse = await response.json();
+      const data: PaginatedMatchingCharges = await response.json();
       
       charges.value = data.matching_charges;
-      // Store if there's a next page and its cursor
-      hasNextPage.value = data.has_more;
-      nextCursor.value = data.next_cursor;
+      
+      // Store pagination information
+      if (data.page !== null) {
+        currentPage.value = data.page;
+      }
+      
+      if (data.page_size !== null) {
+        pageSize.value = data.page_size;
+      }
+      
+      // Store totals
+      totalItems.value = data.total;
+      totalFilteredItems.value = data.filtered_total;
+      apiTotalPages.value = data.total_pages;
+      
+      // For compatibility with components still using cursor-based logic
+      hasNextPage.value = currentPage.value < (data.total_pages || 0);
       
       // If we have no results and we're not on page 1, go back to page 1
       if (data.matching_charges.length === 0 && currentPage.value > 1) {
@@ -122,13 +199,8 @@ export function useWrongAccountSlips() {
   };
 
   const handlePageChange = async (page: number) => {
-    if (page <= 0 || (page > currentPage.value && !hasNextPage.value)) {
+    if (page <= 0 || (apiTotalPages.value !== null && page > apiTotalPages.value)) {
       return;
-    }
-    
-    // If going back to page 1, reset cursor
-    if (page === 1) {
-      nextCursor.value = null;
     }
     
     currentPage.value = page;
@@ -136,20 +208,43 @@ export function useWrongAccountSlips() {
   };
 
   const handleStatusChange = async () => {
-    currentPage.value = 1; // Reset to first page when filter changes
-    nextCursor.value = null; // Reset cursor when filter changes
+    resetPagination();
     await fetchCharges();
+  };
+
+  const handleFilterChange = async () => {
+    resetPagination();
+    await fetchCharges();
+  };
+
+  const togglePaginationMode = () => {
+    fetchCharges();
   };
 
   return {
     charges,
     currentPage,
+    pageSize,
     totalPages,
+    totalItems,
+    totalFilteredItems,
     selectedStatus,
+    selectedCurrency,
+    sortBy,
+    sortOrder,
+    startDate,
+    endDate,
+    minAmount,
+    maxAmount,
     isLoading,
     error,
+    useCursorPagination,
+    hasNextPage,
+    nextCursor,
     fetchCharges,
     handlePageChange,
     handleStatusChange,
+    handleFilterChange,
+    togglePaginationMode
   };
 } 
