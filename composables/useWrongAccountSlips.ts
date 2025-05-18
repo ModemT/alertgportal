@@ -47,8 +47,13 @@ export function useWrongAccountSlips() {
   const selectedStatus = ref('');
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const hasNextPage = ref(false);
+  const nextCursor = ref<string | null>(null);
 
-  const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage));
+  const totalPages = computed(() => {
+    // Only show a next page if we know there's more data
+    return currentPage.value + (hasNextPage.value ? 1 : 0);
+  });
 
   const fetchCharges = async () => {
     try {
@@ -62,12 +67,9 @@ export function useWrongAccountSlips() {
         queryParams.append('status', selectedStatus.value);
       }
 
-      // Calculate cursor based on current page
-      const skipItems = (currentPage.value - 1) * itemsPerPage;
-      if (skipItems > 0) {
-        const cursorDate = new Date();
-        cursorDate.setMinutes(cursorDate.getMinutes() - skipItems);
-        queryParams.append('cursor', cursorDate.toISOString());
+      // Use cursor-based pagination
+      if (currentPage.value > 1 && nextCursor.value) {
+        queryParams.append('cursor', nextCursor.value);
       }
 
       const baseUrl = config.public.apiBase || 'http://0.0.0.0:8000';
@@ -98,24 +100,44 @@ export function useWrongAccountSlips() {
       const data: MatchingChargesResponse = await response.json();
       
       charges.value = data.matching_charges;
-      totalItems.value = data.matching_charges.length + (data.has_more ? itemsPerPage : 0);
+      // Store if there's a next page and its cursor
+      hasNextPage.value = data.has_more;
+      nextCursor.value = data.next_cursor;
+      
+      // If we have no results and we're not on page 1, go back to page 1
+      if (data.matching_charges.length === 0 && currentPage.value > 1) {
+        currentPage.value = 1;
+        await fetchCharges();
+        return;
+      }
     } catch (err) {
       console.error('Error fetching matching charges:', err);
       error.value = err instanceof Error ? err.message : 'Failed to fetch matching charges';
       charges.value = [];
-      totalItems.value = 0;
+      hasNextPage.value = false;
+      nextCursor.value = null;
     } finally {
       isLoading.value = false;
     }
   };
 
   const handlePageChange = async (page: number) => {
+    if (page <= 0 || (page > currentPage.value && !hasNextPage.value)) {
+      return;
+    }
+    
+    // If going back to page 1, reset cursor
+    if (page === 1) {
+      nextCursor.value = null;
+    }
+    
     currentPage.value = page;
     await fetchCharges();
   };
 
   const handleStatusChange = async () => {
     currentPage.value = 1; // Reset to first page when filter changes
+    nextCursor.value = null; // Reset cursor when filter changes
     await fetchCharges();
   };
 

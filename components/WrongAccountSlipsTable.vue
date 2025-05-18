@@ -160,29 +160,14 @@
         </svg>
       </button>
 
-      <!-- Page numbers -->
-      <div class="flex space-x-1">
-        <template v-for="page in displayedPages" :key="page">
-          <button
-            v-if="typeof page === 'number'"
-            @click="handlePageChange(page)"
-            :class="{
-              'px-3 py-1 rounded border': true,
-              'bg-blue-500 text-white': currentPage === page,
-              'bg-white text-gray-700 hover:bg-gray-50': currentPage !== page
-            }"
-          >
-            {{ page }}
-          </button>
-          <span
-            v-else
-            class="px-3 py-1 text-gray-500"
-          >
-            {{ page }}
-          </span>
-        </template>
-      </div>
-
+      <!-- Current page indicator -->
+      <button
+        class="px-3 py-1 rounded border bg-blue-500 text-white"
+        disabled
+      >
+        {{ currentPage }}
+      </button>
+      
       <!-- Next page -->
       <button
         @click="handlePageChange(currentPage + 1)"
@@ -195,22 +180,6 @@
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-        </svg>
-      </button>
-
-      <!-- Last page -->
-      <button
-        @click="handlePageChange(totalPages)"
-        :disabled="currentPage === totalPages"
-        :class="{
-          'px-2 py-1 rounded border': true,
-          'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === totalPages,
-          'bg-white text-gray-700 hover:bg-gray-50': currentPage !== totalPages
-        }"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 17l5-5-5-5"/>
-          <path d="M6 17l5-5-5-5"/>
         </svg>
       </button>
     </div>
@@ -359,33 +328,6 @@ const confirmComplete = async () => {
     isCompletingCharge.value = null;
   }
 };
-
-// Calculate displayed page numbers with ellipsis
-const displayedPages = computed(() => {
-  const total = totalPages.value;
-  const current = currentPage.value;
-  
-  if (total <= 4) {
-    // If total pages are 4 or less, show all pages
-    return Array.from({ length: total }, (_, i) => i + 1);
-  }
-
-  // Always show 4 pages in these patterns:
-  // Pattern 1 (start): 1 2 3 ... (when current page is 1 or 2)
-  // Pattern 2 (middle): 1 ... current ... total (when current page is in the middle)
-  // Pattern 3 (end): ... total-2 total-1 total (when current page is at or near the end)
-
-  if (current <= 2) {
-    // Pattern 1: Show first 3 pages + ellipsis
-    return [1, 2, 3, '...'];
-  } else if (current >= total - 1) {
-    // Pattern 3: Show last 3 pages with ellipsis at start
-    return ['...', total - 2, total - 1, total];
-  } else {
-    // Pattern 2: Show current page with one page before and ellipsis on both sides
-    return [1, '...', current, '...', total];
-  }
-});
 
 onMounted(() => {
   fetchCharges();
