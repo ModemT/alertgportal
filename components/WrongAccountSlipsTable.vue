@@ -20,21 +20,6 @@
           </select>
         </div>
 
-        <!-- Currency Filter -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">สกุลเงิน</label>
-          <select
-            v-model="selectedCurrency"
-            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            @change="handleFilterChange"
-            :disabled="isLoading"
-          >
-            <option value="">ทั้งหมด</option>
-            <option value="THB">บาท (THB)</option>
-            <option value="USD">ดอลลาร์สหรัฐ (USD)</option>
-          </select>
-        </div>
-
         <!-- Amount Range -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ช่วงจำนวนเงิน</label>
@@ -432,7 +417,6 @@ const {
   totalItems,
   totalFilteredItems,
   selectedStatus,
-  selectedCurrency,
   sortBy,
   sortOrder,
   startDate,
@@ -512,7 +496,6 @@ const handlePageSizeChange = () => {
 // Clear all filters
 const clearFilters = () => {
   selectedStatus.value = '';
-  selectedCurrency.value = '';
   sortBy.value = 'created_at';
   sortOrder.value = 'desc';
   startDate.value = '';

@@ -5,12 +5,19 @@
     </div>
     
     <!-- Filters -->
-    <div class="card bg-white rounded-lg shadow-md p-4 sm:p-6 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white p-4 mb-4 border rounded-md shadow-sm">
+      <h3 class="font-medium text-gray-700 mb-3">ตัวกรอง</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Status Filter -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
-          <select v-model="statusFilter" class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
-            <option value="">ทุกสถานะ</option>
+          <select
+            v-model="statusFilter"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            @change="handleFilterChange"
+            :disabled="loading"
+          >
+            <option value="">ทั้งหมด</option>
             <option value="completed">สำเร็จ</option>
             <option value="refunded">คืนเงินแล้ว</option>
             <option value="pending">รอดำเนินการ</option>
@@ -18,50 +25,161 @@
             <option value="cancelled">ยกเลิก</option>
           </select>
         </div>
+
+        <!-- Amount Range -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">ช่วงเวลา</label>
-          <select v-model="timeFilter" class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50">
-            <option value="7">7 วันที่ผ่านมา</option>
-            <option value="30">30 วันที่ผ่านมา</option>
-            <option value="90">90 วันที่ผ่านมา</option>
-            <option value="365">1 ปีที่ผ่านมา</option>
-            <option value="custom">กำหนดเอง</option>
-          </select>
-        </div>
-        <div v-if="timeFilter === 'custom'" class="col-span-1 sm:col-span-2">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
-              <input 
-                type="date" 
-                v-model="startDate" 
-                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
-              <input 
-                type="date" 
-                v-model="endDate" 
-                class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50"
-              />
-            </div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ช่วงจำนวนเงิน</label>
+          <div class="flex space-x-2">
+            <input
+              v-model.number="minAmount"
+              type="number"
+              placeholder="ขั้นต่ำ"
+              class="w-1/2 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              :disabled="loading"
+            />
+            <input
+              v-model.number="maxAmount"
+              type="number"
+              placeholder="สูงสุด"
+              class="w-1/2 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              min="0"
+              :disabled="loading"
+            />
           </div>
         </div>
+
+        <!-- Date Range -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหา</label>
-          <input v-model="searchQuery" type="text" placeholder="ค้นหาการชำระเงิน..." class="input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring focus:ring-primary-500 focus:ring-opacity-50" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันที่เริ่มต้น</label>
+          <input
+            v-model="startDate"
+            type="date"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :disabled="loading"
+            @change="handleStartDateChange"
+          />
         </div>
-        <div class="flex items-end">
-          <button 
-            @click="exportToCSV" 
-            class="btn btn-secondary text-sm w-full"
-            :disabled="isExporting"
-          >
-            {{ isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV' }}
-          </button>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">วันที่สิ้นสุด</label>
+          <input
+            v-model="endDate"
+            type="date"
+            class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            :disabled="loading"
+            @change="handleEndDateChange"
+          />
+        </div>
+
+        <!-- Search input for charges -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหารายการชำระ</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="ค้นหาตาม ID หรือคำอธิบาย"
+              class="w-full border rounded-md pl-10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              :disabled="loading"
+            />
+          </div>
+        </div>
+
+        <!-- Search input for shoppers -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ค้นหาโดยข้อมูลผู้ซื้อ</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <input
+              v-model="shopperSearchQuery"
+              type="text"
+              placeholder="ชื่อ, อีเมล, โทรศัพท์, บัญชี"
+              class="w-full border rounded-md pl-10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              :disabled="loading"
+            />
+          </div>
+        </div>
+
+        <!-- Sort Options -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เรียงตาม</label>
+          <div class="flex space-x-2">
+            <select
+              v-model="sortBy"
+              class="w-2/3 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @change="handleFilterChange"
+              :disabled="loading"
+            >
+              <option value="created_at">วันที่</option>
+              <option value="amount">จำนวนเงิน</option>
+              <option value="status">สถานะ</option>
+            </select>
+            <select
+              v-model="sortOrder"
+              class="w-1/3 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @change="handleFilterChange"
+              :disabled="loading"
+            >
+              <option value="desc">ลงมา</option>
+              <option value="asc">ขึ้นไป</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      <!-- Filter Actions -->
+      <div class="flex justify-end space-x-2 mt-4">
+        <button
+          @click="clearFilters"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          :disabled="loading"
+        >
+          ล้างตัวกรอง
+        </button>
+        <button
+          @click="handleFilterChange"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          :disabled="loading"
+        >
+          ค้นหา
+        </button>
+        <button 
+          @click="exportToCSV" 
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          :disabled="isExporting || loading"
+        >
+          {{ isExporting ? 'กำลังส่งออก...' : 'ส่งออก CSV' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Message -->
+    <div v-if="error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{{ error }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Count Summary -->
+    <div v-if="!loading && totalFilteredItems" class="mb-4 text-sm text-gray-600">
+      แสดง {{ charges.length }} รายการ จากทั้งหมด {{ totalFilteredItems }} รายการที่ตรงกับเงื่อนไข
     </div>
     
     <!-- Charges Table -->
@@ -71,8 +189,13 @@
           <thead>
             <tr>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัส</th>
-              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสผู้ซื้อ</th>
-              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ</th>
+              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center">
+                <span>รหัสผู้ซื้อ</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ml-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </th>
+              <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำอธิบาย</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">จำนวนเงิน</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
               <th class="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่สร้าง</th>
@@ -82,9 +205,9 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="charge in paginatedCharges" :key="charge.id">
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{{ charge.id }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ charge.shopper_id || '-' }}</td>
-              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{{ charge.description || '-' }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900 border-b border-dotted border-gray-300">{{ charge.id }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 border-b border-dotted border-blue-300">{{ charge.shopper_id || '-' }}</td>
+              <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500 border-b border-dotted border-gray-300">{{ charge.description || '-' }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{{ formatAmount(charge.amount) }} {{ charge.currency }}</td>
               <td class="px-4 sm:px-6 py-4 whitespace-nowrap">
                 <span :class="getStatusClass(charge.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
@@ -110,22 +233,114 @@
         </table>
       </div>
       
-      <!-- Pagination -->
-      <div class="flex flex-col sm:flex-row items-center justify-between mt-6">
-        <div class="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-0">
-          แสดง {{ filteredCharges.length }} รายการ
+      <!-- Pagination Controls -->
+      <div v-if="!loading && charges.length > 0" class="flex flex-col sm:flex-row items-center justify-between mt-6">
+        <div class="flex items-center space-x-2">
+          <div class="text-xs sm:text-sm text-gray-500">
+            แสดง {{ totalFilteredItems ?? charges.length }} รายการ
+          </div>
+          
+          <!-- Page Size Selector -->
+          <div class="ml-4 flex items-center space-x-2">
+            <label class="text-xs sm:text-sm text-gray-500">แสดง:</label>
+            <select
+              v-model="pageSize"
+              class="border rounded-md text-xs sm:text-sm px-2 py-1"
+              @change="handlePageSizeChange"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span class="text-xs sm:text-sm text-gray-500">รายการต่อหน้า</span>
+          </div>
         </div>
-        <div class="flex items-center">
-          <button 
-            v-if="hasMore"
-            @click="loadMore"
-            :disabled="loading"
-            :class="{'opacity-50 cursor-not-allowed': loading}"
-            class="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+        
+        <!-- Pagination controls -->
+        <div class="flex justify-center space-x-2">
+          <!-- First page -->
+          <button
+            @click="handlePageChange(1)"
+            :disabled="currentPage === 1"
+            :class="{
+              'px-2 py-1 rounded border': true,
+              'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+              'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
+            }"
           >
-            {{ loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม' }}
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 17l-5-5 5-5"/>
+              <path d="M18 17l-5-5 5-5"/>
+            </svg>
           </button>
-          <span v-else class="text-sm text-gray-500">ไม่มีข้อมูลเพิ่มเติม</span>
+
+          <!-- Previous page -->
+          <button
+            @click="handlePageChange(currentPage - 1)"
+            :disabled="currentPage === 1"
+            :class="{
+              'px-2 py-1 rounded border': true,
+              'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === 1,
+              'bg-white text-gray-700 hover:bg-gray-50': currentPage !== 1
+            }"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
+
+          <!-- Page numbers -->
+          <template v-for="page in displayedPageNumbers" :key="page">
+            <button
+              v-if="typeof page === 'number'"
+              @click="handlePageChange(page)"
+              :class="{
+                'px-3 py-1 rounded border': true,
+                'bg-blue-500 text-white': currentPage === page,
+                'bg-white text-gray-700 hover:bg-gray-50': currentPage !== page
+              }"
+            >
+              {{ page }}
+            </button>
+            <span
+              v-else
+              class="px-2 py-1 text-gray-500"
+            >
+              ...
+            </span>
+          </template>
+
+          <!-- Next page -->
+          <button
+            @click="handlePageChange(currentPage + 1)"
+            :disabled="currentPage >= (totalPages ?? 1)"
+            :class="{
+              'px-2 py-1 rounded border': true,
+              'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage >= (totalPages ?? 1),
+              'bg-white text-gray-700 hover:bg-gray-50': currentPage < (totalPages ?? 1)
+            }"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+          </button>
+
+          <!-- Last page -->
+          <button
+            @click="handlePageChange(safeTotalPages)"
+            :disabled="currentPage === (totalPages ?? 1)"
+            :class="{
+              'px-2 py-1 rounded border': true,
+              'bg-gray-100 text-gray-400 cursor-not-allowed': currentPage === (totalPages ?? 1),
+              'bg-white text-gray-700 hover:bg-gray-50': currentPage !== (totalPages ?? 1)
+            }"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 17l5-5-5-5"/>
+              <path d="M6 17l5-5-5-5"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -191,194 +406,212 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useCharges } from '~/composables/useCharges'
 import ChargeDetailsModal from '~/components/ChargeDetailsModal.vue'
 import _ from 'lodash'
 const { debounce } = _
 
-const { charges, loading, error, fetchCharges, cancelCharge } = useCharges()
+const {
+  charges,
+  loading,
+  error,
+  fetchCharges,
+  cancelCharge,
+  currentPage,
+  pageSize,
+  totalItems,
+  totalFilteredItems,
+  totalPages,
+  changePage,
+  changePageSize,
+  applyFilters
+} = useCharges()
 
-const currentPage = ref(1)
-const itemsPerPage = ref(50)
-const totalItems = ref(0)
-const totalPages = ref(0)
+// UI state
 const isModalOpen = ref(false)
 const selectedChargeId = ref('')
-const statusFilter = ref('')
-const timeFilter = ref('')
-const searchQuery = ref('')
-const startDate = ref('')
-const endDate = ref('')
 const isExporting = ref(false)
-const nextCursor = ref<string | null>(null)
-const hasMore = ref(true)
 const showCancelConfirm = ref(false)
 const chargeToCancel = ref<string | null>(null)
 
-// Modify the debounced search to handle status changes properly
-const debouncedSearch = debounce(async () => {
-  currentPage.value = 1 // Reset to first page when filters change
-  nextCursor.value = null // Reset cursor when filters change
-  charges.value = [] // Clear existing charges
-  await fetchPage()
-}, 300) // 300ms delay
+// Filter state
+const statusFilter = ref('')
+const minAmount = ref<number | null>(null)
+const maxAmount = ref<number | null>(null)
+const searchQuery = ref('')
+const shopperSearchQuery = ref('')
+const startDate = ref('')
+const endDate = ref('')
+const sortBy = ref<'created_at' | 'amount' | 'status'>('created_at')
+const sortOrder = ref<'asc' | 'desc'>('desc')
 
-// Watch status filter changes separately to ensure immediate update
-watch(statusFilter, (newValue) => {
-  if (newValue === 'refunded') {
-    // Force immediate refresh for refund status
-    currentPage.value = 1
-    nextCursor.value = null
-    charges.value = []
-    fetchPage()
+// Calculate which page numbers to display
+const displayedPageNumbers = computed(() => {
+  const totalPagesValue = totalPages.value ?? 1;
+  
+  if (!totalPagesValue || totalPagesValue <= 7) {
+    return Array.from({ length: totalPagesValue || 0 }, (_, i) => i + 1);
+  }
+  
+  // Logic for showing pages around current page
+  const pages: (number | string)[] = [];
+  const currentPageValue = currentPage.value;
+  
+  // Always show first page
+  pages.push(1);
+  
+  // Show ellipsis if needed
+  if (currentPageValue > 3) {
+    pages.push('ellipsis');
+  }
+  
+  // Pages around current page
+  const startPage = Math.max(2, currentPageValue - 1);
+  const endPage = Math.min(totalPagesValue - 1, currentPageValue + 1);
+  
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+  
+  // Show ellipsis if needed
+  if (currentPageValue < totalPagesValue - 2) {
+    pages.push('ellipsis');
+  }
+  
+  // Always show last page
+  if (totalPagesValue > 1) {
+    pages.push(totalPagesValue);
+  }
+  
+  return pages;
+});
+
+// Convert local date to UTC ISO string for API
+const convertToUTCDate = (dateString: string, isEndDate = false): string => {
+  if (!dateString) return '';
+  
+  // Create date object (in local time)
+  const date = new Date(dateString);
+  
+  // Set the time component based on whether it's start or end date
+  if (isEndDate) {
+    date.setHours(23, 59, 59, 999);
   } else {
-    debouncedSearch()
+    date.setHours(0, 0, 0, 0);
   }
-})
-
-// Watch other filters with debouncing
-watch([timeFilter, searchQuery, startDate, endDate], () => {
-  debouncedSearch()
-})
-
-// Watch for timeFilter changes to reset date range
-watch(timeFilter, (newValue) => {
-  if (newValue !== 'custom') {
-    startDate.value = ''
-    endDate.value = ''
-  }
-})
-
-const filteredCharges = computed(() => {
-  let filtered = [...charges.value]
-
-  // Filter by status
-  if (statusFilter.value) {
-    filtered = filtered.filter(charge => charge.status === statusFilter.value)
-  }
-
-  // Filter by time range
-  if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
-    const start = new Date(startDate.value)
-    const end = new Date(endDate.value)
-    end.setHours(23, 59, 59, 999) // Set to end of day
-    
-    filtered = filtered.filter(charge => {
-      const chargeDate = new Date(charge.created_at)
-      return chargeDate.getTime() >= start.getTime() && chargeDate.getTime() <= end.getTime()
-    })
-  } else if (timeFilter.value && timeFilter.value !== 'custom') {
-    const days = parseInt(timeFilter.value)
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - days)
-    filtered = filtered.filter(charge => new Date(charge.created_at).getTime() >= cutoffDate.getTime())
-  }
-
-  // Filter by search query
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(charge => 
-      charge.id.toLowerCase().includes(query) ||
-      charge.description?.toLowerCase().includes(query) ||
-      charge.shopper_id?.toLowerCase().includes(query) ||
-      charge.amount.toString().includes(query)
-    )
-  }
-
-  // Sort by created_at in descending order (newest first)
-  return filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-})
-
-const paginatedCharges = computed(() => {
-  return filteredCharges.value
-})
-
-const updatePagination = () => {
-  totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = Math.max(1, totalPages.value)
-  }
-}
-
-const fetchPage = async (): Promise<void> => {
-  try {
-    loading.value = true
-    
-    // Build options for the API call
-    const options = {
-      cursor: nextCursor.value || undefined,
-      limit: itemsPerPage.value,
-      status: statusFilter.value || undefined,
-      search: searchQuery.value || undefined
-    }
-    
-    const result = await fetchCharges(options)
-    
-    if (nextCursor.value === null) {
-      // First page - replace all data
-      charges.value = result.data
-    } else {
-      // Append to existing data
-      charges.value = [...charges.value, ...result.data]
-    }
-    
-    // Update pagination state
-    nextCursor.value = result.next_cursor
-    hasMore.value = result.has_more
-    totalItems.value = charges.value.length
-    updatePagination()
-    
-    // Force a UI update
-    await nextTick()
-  } catch (err) {
-    console.error('Error fetching charges:', err)
-    error.value = err instanceof Error ? err.message : 'Failed to fetch charges'
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadMore = async () => {
-  if (!hasMore.value || loading.value) return
   
-  try {
-    loading.value = true
-    await fetchPage()
-  } finally {
-    loading.value = false
-  }
-}
+  // Return as ISO string (which is in UTC)
+  return date.toISOString();
+};
 
-// Load more when scrolling to bottom
-const handleScroll = () => {
-  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
-    loadMore()
-  }
-}
+// Handle date changes
+const handleStartDateChange = () => {
+  debounceFilterChange();
+};
 
-// Add polling for status updates
-const startPolling = () => {
-  const pollInterval = setInterval(async () => {
-    if (!loading.value && hasMore.value) {
-      await fetchPage()
-    }
-  }, 5000) // Poll every 5 seconds
+const handleEndDateChange = () => {
+  debounceFilterChange();
+};
+
+// Debounce filter changes
+let debounceTimeout: NodeJS.Timeout;
+const debounceFilterChange = () => {
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(() => {
+    handleFilterChange();
+  }, 500);
+};
+
+// Watch date inputs specifically
+watch([startDate, endDate], () => {
+  debounceFilterChange();
+});
+
+// Watch other filter inputs 
+watch([searchQuery, shopperSearchQuery, minAmount, maxAmount], () => {
+  debounceFilterChange();
+});
+
+// Handle filter change
+const handleFilterChange = async () => {
+  const options = {
+    status: statusFilter.value || undefined,
+    min_amount: minAmount.value || undefined,
+    max_amount: maxAmount.value || undefined,
+    start_date: startDate.value ? convertToUTCDate(startDate.value, false) : undefined,
+    end_date: endDate.value ? convertToUTCDate(endDate.value, true) : undefined,
+    search_term: searchQuery.value || undefined,
+    shopper_search_term: shopperSearchQuery.value || undefined,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  };
   
-  onUnmounted(() => {
-    clearInterval(pollInterval)
-  })
-}
+  await applyFilters(options);
+  
+  // Force a UI update after data changes
+  await nextTick();
+};
+
+// Clear all filters
+const clearFilters = () => {
+  statusFilter.value = '';
+  minAmount.value = null;
+  maxAmount.value = null;
+  startDate.value = '';
+  endDate.value = '';
+  searchQuery.value = '';
+  shopperSearchQuery.value = '';
+  sortBy.value = 'created_at';
+  sortOrder.value = 'desc';
+  
+  // Apply filter changes
+  handleFilterChange();
+};
+
+// Handle page change
+const handlePageChange = async (page: number) => {
+  if (page < 1 || (totalPages.value !== null && page > totalPages.value)) {
+    return;
+  }
+  
+  const options = {
+    status: statusFilter.value || undefined,
+    min_amount: minAmount.value || undefined,
+    max_amount: maxAmount.value || undefined,
+    start_date: startDate.value ? convertToUTCDate(startDate.value, false) : undefined,
+    end_date: endDate.value ? convertToUTCDate(endDate.value, true) : undefined,
+    search_term: searchQuery.value || undefined,
+    shopper_search_term: shopperSearchQuery.value || undefined,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  };
+  
+  await changePage(page, options);
+};
+
+// Handle page size change
+const handlePageSizeChange = async () => {
+  const options = {
+    status: statusFilter.value || undefined,
+    min_amount: minAmount.value || undefined,
+    max_amount: maxAmount.value || undefined,
+    start_date: startDate.value ? convertToUTCDate(startDate.value, false) : undefined,
+    end_date: endDate.value ? convertToUTCDate(endDate.value, true) : undefined,
+    search_term: searchQuery.value || undefined,
+    shopper_search_term: shopperSearchQuery.value || undefined,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  };
+  
+  if (pageSize.value) {
+    await changePageSize(Number(pageSize.value), options);
+  }
+};
 
 onMounted(async () => {
-  await fetchPage()
-  startPolling()
-  window.addEventListener('scroll', handleScroll)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
+  await handleFilterChange();
+});
 
 const formatAmount = (amount: number): string => {
   return new Intl.NumberFormat('th-TH', {
@@ -445,31 +678,13 @@ const openChargeDetails = (chargeId: string): void => {
 const closeChargeDetails = (): void => {
   isModalOpen.value = false
   selectedChargeId.value = ''
+  // Refresh the data after closing the modal in case changes were made
+  handleFilterChange();
 }
 
 const exportToCSV = async () => {
   try {
     isExporting.value = true
-    
-    // Format dates to ISO 8601 for API
-    let formattedStartDate, formattedEndDate
-    
-    if (timeFilter.value === 'custom' && startDate.value && endDate.value) {
-      // For custom date range, use the selected dates
-      const start = new Date(startDate.value)
-      const end = new Date(endDate.value)
-      end.setHours(23, 59, 59, 999) // Set to end of day
-      formattedStartDate = start.toISOString()
-      formattedEndDate = end.toISOString()
-    } else if (timeFilter.value && timeFilter.value !== 'custom') {
-      // For predefined ranges, calculate the date range
-      const days = parseInt(timeFilter.value)
-      const end = new Date()
-      const start = new Date()
-      start.setDate(start.getDate() - days)
-      formattedStartDate = start.toISOString()
-      formattedEndDate = end.toISOString()
-    }
     
     const config = useRuntimeConfig()
     const apiBase = config.public.apiBase as string
@@ -481,9 +696,21 @@ const exportToCSV = async () => {
     
     // Build query parameters
     const params = new URLSearchParams()
-    if (formattedStartDate) params.append('start_time', formattedStartDate)
-    if (formattedEndDate) params.append('end_time', formattedEndDate)
-    if (statusFilter.value) params.append('status', statusFilter.value)
+    if (startDate.value) {
+      params.append('start_date', convertToUTCDate(startDate.value, false))
+    }
+    if (endDate.value) {
+      params.append('end_date', convertToUTCDate(endDate.value, true))
+    }
+    if (statusFilter.value) {
+      params.append('status', statusFilter.value)
+    }
+    if (searchQuery.value) {
+      params.append('search_term', searchQuery.value)
+    }
+    if (shopperSearchQuery.value) {
+      params.append('shopper_search_term', shopperSearchQuery.value)
+    }
     params.append('include_metadata', 'false') // Default to false, can be made configurable
     
     // Fetch as blob for file download
@@ -534,141 +761,33 @@ const exportToCSV = async () => {
   }
 }
 
-const nextPage = (): void => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-  }
-}
-
-const prevPage = (): void => {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-const goToPage = (page: number): void => {
-  currentPage.value = page
-}
-
-const openCancelConfirm = (chargeId: string) => {
+const openCancelConfirm = (chargeId: string): void => {
   chargeToCancel.value = chargeId
   showCancelConfirm.value = true
 }
 
-const handleCancelCharge = async () => {
-  if (!chargeToCancel.value) return
-  
-  try {
-    loading.value = true
-    await cancelCharge(chargeToCancel.value)
-    
-    // Reset pagination and filters
-    currentPage.value = 1
-    nextCursor.value = null
-    hasMore.value = true
-    charges.value = []
-    
-    // Fetch fresh data
-    const options = {
-      limit: itemsPerPage.value,
-      status: statusFilter.value || undefined,
-      search: searchQuery.value || undefined
-    }
-    const result = await fetchCharges(options)
-    charges.value = result.data
-    nextCursor.value = result.next_cursor
-    hasMore.value = result.has_more
-    totalItems.value = charges.value.length
-    updatePagination()
-    
-    // Close modal and reset state
-    showCancelConfirm.value = false
-    chargeToCancel.value = null
-    
-    // Show success notification
-    const toast = document.createElement('div')
-    toast.className = 'fixed bottom-4 right-4 bg-green-50 border border-green-200 rounded-lg shadow-lg p-4 max-w-sm z-50'
-    toast.innerHTML = `
-      <div class="flex items-start">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <div class="ml-3">
-          <p class="text-sm font-medium text-green-800">ยกเลิกการชำระเงินสำเร็จ</p>
-        </div>
-        <div class="ml-4 flex-shrink-0 flex">
-          <button class="inline-flex text-green-400 hover:text-green-500">
-            <span class="sr-only">ปิด</span>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    `
-    document.body.appendChild(toast)
-    
-    // Add click handler to close button
-    const closeButton = toast.querySelector('button')
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        toast.remove()
-      })
-    }
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      toast.remove()
-    }, 5000)
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to cancel charge'
-    // Show error notification
-    const toast = document.createElement('div')
-    toast.className = 'fixed bottom-4 right-4 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4 max-w-sm z-50'
-    toast.innerHTML = `
-      <div class="flex items-start">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div class="ml-3">
-          <p class="text-sm font-medium text-red-800">ไม่สามารถยกเลิกการชำระเงินได้</p>
-          <p class="mt-1 text-sm text-red-700">${error.value}</p>
-        </div>
-        <div class="ml-4 flex-shrink-0 flex">
-          <button class="inline-flex text-red-400 hover:text-red-500">
-            <span class="sr-only">ปิด</span>
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    `
-    document.body.appendChild(toast)
-    
-    // Add click handler to close button
-    const closeButton = toast.querySelector('button')
-    if (closeButton) {
-      closeButton.addEventListener('click', () => {
-        toast.remove()
-      })
-    }
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      toast.remove()
-    }, 5000)
-  } finally {
-    loading.value = false
-  }
-}
-
-const closeCancelConfirm = () => {
+const closeCancelConfirm = (): void => {
   showCancelConfirm.value = false
   chargeToCancel.value = null
 }
+
+const handleCancelCharge = async (): Promise<void> => {
+  if (!chargeToCancel.value) return
+  
+  try {
+    await cancelCharge(chargeToCancel.value)
+    closeCancelConfirm()
+    
+    // Refresh data after successful cancellation
+    handleFilterChange()
+  } catch (err) {
+    console.error('Error cancelling charge:', err)
+  }
+}
+
+// Fix paginatedCharges error by adding a computed property
+const paginatedCharges = computed(() => charges.value);
+
+// Add null check for totalPages
+const safeTotalPages = computed(() => totalPages.value ?? 1);
 </script> 

@@ -52,7 +52,6 @@ export function useWrongAccountSlips() {
   const totalFilteredItems = ref<number | null>(null);
   const apiTotalPages = ref<number | null>(null);
   const selectedStatus = ref('');
-  const selectedCurrency = ref('');
   const sortBy = ref('created_at');
   const sortOrder = ref('desc');
   const startDate = ref('');
@@ -102,10 +101,6 @@ export function useWrongAccountSlips() {
       // Add filters
       if (selectedStatus.value) {
         queryParams.append('status', selectedStatus.value);
-      }
-      
-      if (selectedCurrency.value) {
-        queryParams.append('currency', selectedCurrency.value);
       }
       
       if (sortBy.value) {
@@ -229,7 +224,6 @@ export function useWrongAccountSlips() {
     totalItems,
     totalFilteredItems,
     selectedStatus,
-    selectedCurrency,
     sortBy,
     sortOrder,
     startDate,
